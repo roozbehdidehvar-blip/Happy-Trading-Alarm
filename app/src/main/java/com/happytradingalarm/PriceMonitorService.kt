@@ -5,6 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.RingtoneManager
 import android.os.Build
 import android.os.IBinder
 import kotlinx.coroutines.CoroutineScope
@@ -15,7 +17,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -34,6 +35,7 @@ class PriceMonitorService : Service() {
         super.onCreate()
 
         createServiceNotificationChannel()
+        createPriceAlertChannels()
 
         startForeground(
             SERVICE_NOTIFICATION_ID,
@@ -63,7 +65,7 @@ class PriceMonitorService : Service() {
                             alerts
                                 .filter {
                                     it.enabled &&
-                                    !it.triggered
+                                        !it.triggered
                                 }
                                 .map {
                                     it.symbol
@@ -115,12 +117,12 @@ class PriceMonitorService : Service() {
                     if (alert.direction == "Above") {
 
                         currentPrice >=
-                                alert.targetPrice
+                            alert.targetPrice
 
                     } else {
 
                         currentPrice <=
-                                alert.targetPrice
+                            alert.targetPrice
                     }
 
                 if (reached) {
@@ -312,6 +314,75 @@ class PriceMonitorService : Service() {
         }
     }
 
+    /*
+     * Creates the three price-alert channels.
+     *
+     * Each channel has its own sound.
+     * Android notification channel sounds are persistent,
+     * so separate channel IDs are used for each sound.
+     */
+    private fun createPriceAlertChannels() {
+
+        if (
+            Build.VERSION.SDK_INT <
+            Build.VERSION_CODES.O
+        ) {
+            return
+        }
+
+        val manager =
+            getSystemService(
+                NotificationManager::class.java
+            )
+
+        getAlarmSounds().forEach { sound ->
+
+            val channelId =
+                getNotificationChannelId(
+                    sound.id
+                )
+
+            val existingChannel =
+                manager.getNotificationChannel(
+                    channelId
+                )
+
+            if (existingChannel == null) {
+
+                val channel =
+                    NotificationChannel(
+                        channelId,
+                        "Price Alerts — ${sound.name}",
+                        NotificationManager
+                            .IMPORTANCE_HIGH
+                    )
+
+                channel.description =
+                    "Happy Trading Alarm price alerts"
+
+                channel.enableVibration(true)
+
+                val soundUri =
+                    RingtoneManager.getDefaultUri(
+                        sound.uriType
+                    )
+
+                channel.setSound(
+                    soundUri,
+                    AudioAttributes.Builder()
+                        .setUsage(
+                            AudioAttributes.USAGE_ALARM
+                        )
+                        .build()
+                )
+
+                manager.createNotificationChannel(
+                    channel
+                )
+            }
+        }
+    }
+
     private fun createServiceNotification():
             Notification {
 
@@ -333,7 +404,8 @@ class PriceMonitorService : Service() {
 
         return builder
             .setSmallIcon(
-                android.R.drawable.ic_menu_info_details
+                android.R.drawable
+                    .ic_menu_info_details
             )
             .setContentTitle(
                 "Happy Trading Alarm"
@@ -366,6 +438,7 @@ class PriceMonitorService : Service() {
                 android.content.pm.PackageManager
                     .PERMISSION_GRANTED
             ) {
+
                 return
             }
         }
@@ -375,18 +448,34 @@ class PriceMonitorService : Service() {
                 NotificationManager::class.java
             )
 
+        /*
+         * Read the sound selected by the user
+         * in MainActivity.
+         */
+        val selectedSoundId =
+            getSavedAlarmSoundId(this)
+
+        /*
+         * Select the corresponding notification
+         * channel.
+         */
+        val channelId =
+            getNotificationChannelId(
+                selectedSoundId
+            )
+
         val title =
             "🔔 ${alert.symbol} PRICE ALERT"
 
         val message =
             "Price reached " +
-                    formatPriceForService(
-                        currentPrice
-                    ) +
-                    " — target " +
-                    formatPriceForService(
-                        alert.targetPrice
-                    )
+                formatPriceForService(
+                    currentPrice
+                ) +
+                " — target " +
+                formatPriceForService(
+                    alert.targetPrice
+                )
 
         val builder =
             if (
@@ -396,17 +485,23 @@ class PriceMonitorService : Service() {
 
                 Notification.Builder(
                     this,
-                    ALERT_CHANNEL_ID
+                    channelId
                 )
 
             } else {
 
                 Notification.Builder(this)
+                    .setSound(
+                        getSelectedAlarmSoundUri(
+                            this
+                        )
+                    )
             }
 
         builder
             .setSmallIcon(
-                android.R.drawable.ic_dialog_alert
+                android.R.drawable
+                    .ic_dialog_alert
             )
             .setContentTitle(title)
             .setContentText(message)
@@ -465,6 +560,7 @@ class PriceMonitorService : Service() {
     override fun onBind(
         intent: Intent?
     ): IBinder? {
+
         return null
     }
 
@@ -482,15 +578,15 @@ class PriceMonitorService : Service() {
             val url =
                 URL(
                     "https://api1.tabdeal.org" +
-                            "/r/api/v1/trades" +
-                            "?symbol=" +
-                            cleanSymbol +
-                            "&limit=1"
+                        "/r/api/v1/trades" +
+                        "?symbol=" +
+                        cleanSymbol +
+                        "&limit=1"
                 )
 
             val connection =
                 url.openConnection()
-                        as HttpURLConnection
+                    as HttpURLConnection
 
             connection.requestMethod =
                 "GET"
@@ -533,8 +629,7 @@ class PriceMonitorService : Service() {
 
                 return PriceResult(
                     price = null,
-                    error =
-                        "No trades"
+                    error = "No trades"
                 )
             }
 
@@ -605,9 +700,6 @@ class PriceMonitorService : Service() {
 
         const val SERVICE_CHANNEL_ID =
             "happy_trading_background"
-
-        const val ALERT_CHANNEL_ID =
-            "happy_trading_price_alerts"
 
         private const val PREFS_NAME =
             "happy_trading_alarm_prefs"
