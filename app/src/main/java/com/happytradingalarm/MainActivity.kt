@@ -5,35 +5,32 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.net.HttpURLConnection
 import java.net.URL
@@ -63,12 +60,19 @@ fun HappyTradingAlarmScreen() {
 
     var selectedCoin by remember { mutableStateOf("BTC / USDT") }
     var menuExpanded by remember { mutableStateOf(false) }
-    var targetPrice by remember { mutableStateOf("") }
-    var direction by remember { mutableStateOf("Above") }
 
     var currentPrice by remember { mutableStateOf("--") }
-    var connectionStatus by remember {
-        mutableStateOf("Connecting to Tabdeal...")
+
+    var status by remember {
+        mutableStateOf("Starting connection test...")
+    }
+
+    var diagnostic by remember {
+        mutableStateOf("Waiting...")
+    }
+
+    var lastUpdate by remember {
+        mutableStateOf("--")
     }
 
     val alerts = remember {
@@ -88,19 +92,16 @@ fun HappyTradingAlarmScreen() {
 
         while (true) {
 
-            val result = getTabdealPrice(selectedCoin)
-
-            if (result != null) {
-
-                currentPrice = result
-                connectionStatus = "● Connected to Tabdeal"
-
-            } else {
-
-                connectionStatus = "● Connection failed"
+            val result = withContext(Dispatchers.IO) {
+                testTabdeal(selectedCoin)
             }
 
-            delay(5000)
+            currentPrice = result.price
+            status = result.status
+            diagnostic = result.details
+            lastUpdate = result.time
+
+            delay(10000)
         }
     }
 
@@ -120,11 +121,14 @@ fun HappyTradingAlarmScreen() {
             )
 
             Text(
-                text = "Crypto Price Alert",
+                text = "Tabdeal Connection Diagnostic",
                 style = MaterialTheme.typography.bodyMedium
             )
 
             Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        item {
 
             Card(
                 modifier = Modifier.fillMaxWidth()
@@ -135,7 +139,7 @@ fun HappyTradingAlarmScreen() {
                 ) {
 
                     Text(
-                        text = "Select Cryptocurrency",
+                        text = "Cryptocurrency",
                         fontWeight = FontWeight.Bold
                     )
 
@@ -164,12 +168,8 @@ fun HappyTradingAlarmScreen() {
                                     Text(coin)
                                 },
                                 onClick = {
-
                                     selectedCoin = coin
                                     menuExpanded = false
-                                    currentPrice = "--"
-                                    connectionStatus =
-                                        "Connecting to Tabdeal..."
                                 }
                             )
                         }
@@ -185,8 +185,7 @@ fun HappyTradingAlarmScreen() {
             ) {
 
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    modifier = Modifier.padding(16.dp)
                 ) {
 
                     Text(
@@ -202,18 +201,17 @@ fun HappyTradingAlarmScreen() {
                         fontWeight = FontWeight.Bold
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = connectionStatus,
-                        style = MaterialTheme.typography.bodySmall
+                        text = status,
+                        fontWeight = FontWeight.Bold
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
-                        text = "Auto refresh: 5 seconds",
-                        style = MaterialTheme.typography.bodySmall
+                        text = "Last update: $lastUpdate"
                     )
                 }
             }
@@ -230,191 +228,278 @@ fun HappyTradingAlarmScreen() {
                 ) {
 
                     Text(
-                        text = "Create Price Alert",
+                        text = "Diagnostic Result",
                         fontWeight = FontWeight.Bold
                     )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    OutlinedTextField(
-                        value = targetPrice,
-                        onValueChange = {
-                            targetPrice = it
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = {
-                            Text("Target Price")
-                        },
-                        singleLine = true
+                    Text(
+                        text = diagnostic
                     )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-
-                        OutlinedButton(
-                            onClick = {
-                                direction = "Above"
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Above")
-                        }
-
-                        OutlinedButton(
-                            onClick = {
-                                direction = "Below"
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Below")
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Button(
-                        onClick = {
-
-                            if (targetPrice.isNotBlank()) {
-
-                                alerts.add(
-                                    PriceAlert(
-                                        symbol = selectedCoin,
-                                        targetPrice = targetPrice,
-                                        direction = direction
-                                    )
-                                )
-
-                                targetPrice = ""
-                            }
-
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-
-                        Text("🔔  CREATE ALERT")
-                    }
                 }
             }
         }
 
         item {
 
-            Text(
-                text = "Active Alerts",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
+            Button(
+                onClick = {
+                    status = "Testing..."
+                    diagnostic = "Running connection test..."
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("TEST CONNECTION")
+            }
         }
 
-        if (alerts.isEmpty()) {
+        item {
 
-            item {
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
 
-                Card(
-                    modifier = Modifier.fillMaxWidth()
+                Column(
+                    modifier = Modifier.padding(16.dp)
                 ) {
 
                     Text(
-                        text = "No active alerts",
-                        modifier = Modifier.padding(16.dp)
+                        text = "API Endpoints Tested",
+                        fontWeight = FontWeight.Bold
                     )
-                }
-            }
 
-        } else {
+                    Spacer(modifier = Modifier.height(8.dp))
 
-            items(alerts) { alert ->
-
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-
-                            Column(
-                                modifier = Modifier.weight(1f)
-                            ) {
-
-                                Text(
-                                    text = alert.symbol,
-                                    fontWeight = FontWeight.Bold
-                                )
-
-                                Text(
-                                    text = "${alert.direction} ${alert.targetPrice}"
-                                )
-                            }
-
-                            Switch(
-                                checked = alert.enabled,
-                                onCheckedChange = {
-                                    alert.enabled = it
-                                }
-                            )
-                        }
-                    }
+                    Text("1. /ping")
+                    Text("2. /exchangeInfo")
+                    Text("3. /trades")
                 }
             }
         }
     }
 }
 
-fun getTabdealPrice(symbol: String): String? {
+data class TabdealResult(
+    val price: String,
+    val status: String,
+    val details: String,
+    val time: String
+)
+
+fun testTabdeal(symbol: String): TabdealResult {
+
+    val cleanSymbol = symbol
+        .replace(" / ", "")
+        .uppercase()
+
+    val baseUrl = "https://api1.tabdeal.org"
 
     return try {
 
-        val cleanSymbol = symbol
-            .replace(" / ", "")
-            .uppercase()
+        // -------------------------------------------------
+        // TEST 1: PING
+        // -------------------------------------------------
 
-        val url = URL(
-            "https://api1.tabdeal.org/r/api/v1/trades" +
-                    "?symbol=$cleanSymbol&limit=1"
-        )
+        val pingUrl =
+            URL("$baseUrl/r/api/v1/ping")
 
-        val connection =
-            url.openConnection() as HttpURLConnection
+        val pingConnection =
+            pingUrl.openConnection() as HttpURLConnection
 
-        connection.requestMethod = "GET"
-        connection.connectTimeout = 8000
-        connection.readTimeout = 8000
+        pingConnection.requestMethod = "GET"
+        pingConnection.connectTimeout = 8000
+        pingConnection.readTimeout = 8000
 
-        if (connection.responseCode != 200) {
-            connection.disconnect()
-            return null
+        val pingCode = pingConnection.responseCode
+
+        pingConnection.disconnect()
+
+        if (pingCode != 200) {
+
+            return TabdealResult(
+                price = "--",
+                status = "❌ PING FAILED",
+                details = "HTTP $pingCode from /ping",
+                time = nowTime()
+            )
         }
 
-        val response =
-            connection.inputStream
+        // -------------------------------------------------
+        // TEST 2: EXCHANGE INFO
+        // -------------------------------------------------
+
+        val infoUrl =
+            URL("$baseUrl/r/api/v1/exchangeInfo?symbol=$cleanSymbol")
+
+        val infoConnection =
+            infoUrl.openConnection() as HttpURLConnection
+
+        infoConnection.requestMethod = "GET"
+        infoConnection.connectTimeout = 8000
+        infoConnection.readTimeout = 8000
+
+        val infoCode = infoConnection.responseCode
+
+        val infoResponse =
+            infoConnection.inputStream
                 .bufferedReader()
                 .use { it.readText() }
 
-        connection.disconnect()
+        infoConnection.disconnect()
 
-        val array = JSONArray(response)
+        if (infoCode != 200) {
 
-        if (array.length() == 0) {
-            return null
+            return TabdealResult(
+                price = "--",
+                status = "❌ EXCHANGE INFO FAILED",
+                details = "HTTP $infoCode\n$infoResponse",
+                time = nowTime()
+            )
         }
 
-        val trade = array.getJSONObject(0)
+        if (infoResponse.isBlank()) {
 
-        trade.getString("price")
+            return TabdealResult(
+                price = "--",
+                status = "❌ EMPTY RESPONSE",
+                details = "exchangeInfo returned empty data",
+                time = nowTime()
+            )
+        }
+
+        // -------------------------------------------------
+        // TEST 3: TRADES
+        // -------------------------------------------------
+
+        val tradesUrl =
+            URL(
+                "$baseUrl/r/api/v1/trades" +
+                        "?symbol=$cleanSymbol&limit=1"
+            )
+
+        val tradesConnection =
+            tradesUrl.openConnection() as HttpURLConnection
+
+        tradesConnection.requestMethod = "GET"
+        tradesConnection.connectTimeout = 8000
+        tradesConnection.readTimeout = 8000
+
+        val tradesCode = tradesConnection.responseCode
+
+        val tradesResponse =
+            tradesConnection.inputStream
+                .bufferedReader()
+                .use { it.readText() }
+
+        tradesConnection.disconnect()
+
+        if (tradesCode != 200) {
+
+            return TabdealResult(
+                price = "--",
+                status = "❌ TRADES FAILED",
+                details = "HTTP $tradesCode\n$tradesResponse",
+                time = nowTime()
+            )
+        }
+
+        if (tradesResponse.isBlank()) {
+
+            return TabdealResult(
+                price = "--",
+                status = "❌ EMPTY TRADES",
+                details = "trades endpoint returned empty data",
+                time = nowTime()
+            )
+        }
+
+        val trades =
+            JSONArray(tradesResponse)
+
+        if (trades.length() == 0) {
+
+            return TabdealResult(
+                price = "--",
+                status = "❌ NO TRADES",
+                details = "No trades returned for $cleanSymbol",
+                time = nowTime()
+            )
+        }
+
+        val latestTrade =
+            trades.getJSONObject(0)
+
+        val price =
+            latestTrade.getString("price")
+
+        TabdealResult(
+            price = price,
+            status = "✅ CONNECTED",
+            details =
+                "Tabdeal API is reachable.\n" +
+                "Symbol: $cleanSymbol\n" +
+                "Ping: OK\n" +
+                "ExchangeInfo: OK\n" +
+                "Trades: OK",
+            time = nowTime()
+        )
+
+    } catch (e: java.net.UnknownHostException) {
+
+        TabdealResult(
+            price = "--",
+            status = "❌ DNS ERROR",
+            details =
+                "Cannot resolve api1.tabdeal.org\n\n" +
+                e.message,
+            time = nowTime()
+        )
+
+    } catch (e: java.net.SocketTimeoutException) {
+
+        TabdealResult(
+            price = "--",
+            status = "❌ TIMEOUT",
+            details =
+                "Connection timed out.\n\n" +
+                e.message,
+            time = nowTime()
+        )
+
+    } catch (e: javax.net.ssl.SSLException) {
+
+        TabdealResult(
+            price = "--",
+            status = "❌ SSL ERROR",
+            details =
+                "SSL/TLS connection failed.\n\n" +
+                e.message,
+            time = nowTime()
+        )
 
     } catch (e: Exception) {
 
-        null
+        TabdealResult(
+            price = "--",
+            status = "❌ CONNECTION ERROR",
+            details =
+                "${e.javaClass.simpleName}\n\n" +
+                (e.message ?: "Unknown error"),
+            time = nowTime()
+        )
     }
+}
+
+fun nowTime(): String {
+
+    val formatter =
+        java.text.SimpleDateFormat(
+            "HH:mm:ss",
+            java.util.Locale.getDefault()
+        )
+
+    return formatter.format(
+        java.util.Date()
+    )
 }
