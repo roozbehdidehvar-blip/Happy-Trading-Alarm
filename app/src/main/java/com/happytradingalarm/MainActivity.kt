@@ -92,9 +92,8 @@ enum class AppTheme {
 class MainActivity : ComponentActivity() {
 
     /*
-     * IMPORTANT:
-     * There is ONE ringtone controller for TEST SOUND.
-     * TEST and STOP therefore operate on the exact same ringtone.
+     * Ringtone controller for TEST SOUND.
+     * TEST and STOP always use the same ringtone instance.
      */
     private var testRingtone: Ringtone? = null
 
@@ -119,6 +118,7 @@ class MainActivity : ComponentActivity() {
                 context = this,
 
                 onAlarmTriggered = { alert, currentPrice ->
+
                     playSelectedAlarmSound()
 
                     showPriceAlertNotification(
@@ -140,15 +140,18 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestNotificationPermission() {
+
         if (
             Build.VERSION.SDK_INT >=
             Build.VERSION_CODES.TIRAMISU
         ) {
+
             if (
                 checkSelfPermission(
                     Manifest.permission.POST_NOTIFICATIONS
                 ) != PackageManager.PERMISSION_GRANTED
             ) {
+
                 notificationPermissionLauncher.launch(
                     Manifest.permission.POST_NOTIFICATIONS
                 )
@@ -158,10 +161,13 @@ class MainActivity : ComponentActivity() {
 
     /*
      * Start TEST SOUND.
-     * Any previous test sound is stopped first.
      */
-    private fun playTestAlarmSound(soundId: String) {
+    private fun playTestAlarmSound(
+        soundId: String
+    ) {
+
         try {
+
             stopTestAlarmSound()
 
             val sound =
@@ -177,6 +183,7 @@ class MainActivity : ComponentActivity() {
                 )
 
             if (uri != null) {
+
                 testRingtone =
                     RingtoneManager.getRingtone(
                         this,
@@ -185,14 +192,16 @@ class MainActivity : ComponentActivity() {
 
                 testRingtone?.play()
             }
+
         } catch (_: Exception) {
         }
     }
 
     /*
-     * STOP the exact ringtone used by TEST SOUND.
+     * Stop the exact ringtone used by TEST SOUND.
      */
     private fun stopTestAlarmSound() {
+
         try {
             testRingtone?.stop()
         } catch (_: Exception) {
@@ -205,13 +214,16 @@ class MainActivity : ComponentActivity() {
      * Real price-triggered alarm.
      */
     private fun playSelectedAlarmSound() {
+
         try {
+
             alarmRingtone?.stop()
 
             val uri =
                 getSelectedAlarmSoundUri(this)
 
             if (uri != null) {
+
                 alarmRingtone =
                     RingtoneManager.getRingtone(
                         this,
@@ -220,10 +232,14 @@ class MainActivity : ComponentActivity() {
 
                 alarmRingtone?.play()
             }
+
         } catch (_: Exception) {
         }
     }
 
+    /*
+     * Create notification channels.
+     */
     private fun createAllNotificationChannels() {
 
         if (
@@ -325,9 +341,15 @@ fun HappyTradingAlarmApp(
 
     val darkTheme =
         when (appTheme) {
-            AppTheme.SYSTEM -> systemDark
-            AppTheme.LIGHT -> false
-            AppTheme.DARK -> true
+
+            AppTheme.SYSTEM ->
+                systemDark
+
+            AppTheme.LIGHT ->
+                false
+
+            AppTheme.DARK ->
+                true
         }
 
     val colors =
@@ -456,10 +478,6 @@ fun HappyTradingAlarmScreen(
         mutableStateOf("Connecting...")
     }
 
-    var backgroundMonitoring by remember {
-        mutableStateOf(false)
-    }
-
     val alerts =
         remember {
             mutableStateListOf<PriceAlert>()
@@ -475,6 +493,9 @@ fun HappyTradingAlarmScreen(
             "DOGE / USDT"
         )
 
+    /*
+     * Load saved alerts.
+     */
     LaunchedEffect(Unit) {
 
         val savedAlerts =
@@ -487,6 +508,9 @@ fun HappyTradingAlarmScreen(
         )
     }
 
+    /*
+     * Real-time foreground price monitoring.
+     */
     LaunchedEffect(selectedCoin) {
 
         while (true) {
@@ -495,6 +519,7 @@ fun HappyTradingAlarmScreen(
                 withContext(
                     Dispatchers.IO
                 ) {
+
                     getTabdealPrice(
                         selectedCoin
                     )
@@ -527,9 +552,12 @@ fun HappyTradingAlarmScreen(
                                 alert.direction ==
                                 "Above"
                             ) {
+
                                 price >=
                                     alert.targetPrice
+
                             } else {
+
                                 price <=
                                     alert.targetPrice
                             }
@@ -540,6 +568,7 @@ fun HappyTradingAlarmScreen(
                                 alert.copy(
                                     triggered =
                                         true,
+
                                     enabled =
                                         false
                                 )
@@ -580,6 +609,9 @@ fun HappyTradingAlarmScreen(
             Arrangement.spacedBy(12.dp)
     ) {
 
+        /*
+         * HEADER
+         */
         item {
 
             Row(
@@ -616,11 +648,15 @@ fun HappyTradingAlarmScreen(
                     onClick =
                         onOpenSettings
                 ) {
+
                     Text("⚙")
                 }
             }
         }
 
+        /*
+         * COIN SELECTOR
+         */
         item {
 
             Card(
@@ -652,7 +688,10 @@ fun HappyTradingAlarmScreen(
                         modifier =
                             Modifier.fillMaxWidth()
                     ) {
-                        Text(selectedCoin)
+
+                        Text(
+                            selectedCoin
+                        )
                     }
 
                     DropdownMenu(
@@ -694,6 +733,9 @@ fun HappyTradingAlarmScreen(
             }
         }
 
+        /*
+         * CURRENT PRICE
+         */
         item {
 
             Card(
@@ -755,116 +797,12 @@ fun HappyTradingAlarmScreen(
             }
         }
 
-        item {
-
-            Card(
-                modifier =
-                    Modifier.fillMaxWidth()
-            ) {
-
-                Column(
-                    modifier =
-                        Modifier.padding(16.dp)
-                ) {
-
-                    Text(
-                        "BACKGROUND MONITORING",
-                        fontWeight =
-                            FontWeight.Bold
-                    )
-
-                    Spacer(
-                        Modifier.height(8.dp)
-                    )
-
-                    Text(
-                        if (
-                            backgroundMonitoring
-                        ) {
-                            "● Monitoring Active"
-                        } else {
-                            "○ Monitoring Off"
-                        }
-                    )
-
-                    Spacer(
-                        Modifier.height(10.dp)
-                    )
-
-                    Button(
-                        onClick = {
-
-                            if (
-                                !backgroundMonitoring
-                            ) {
-
-                                val intent =
-                                    android.content.Intent(
-                                        context,
-                                        PriceMonitorService::class.java
-                                    ).apply {
-                                        action =
-                                            PriceMonitorService.ACTION_START
-                                    }
-
-                                if (
-                                    Build.VERSION.SDK_INT >=
-                                    Build.VERSION_CODES.O
-                                ) {
-
-                                    context
-                                        .startForegroundService(
-                                            intent
-                                        )
-
-                                } else {
-
-                                    context.startService(
-                                        intent
-                                    )
-                                }
-
-                                backgroundMonitoring =
-                                    true
-
-                            } else {
-
-                                val intent =
-                                    android.content.Intent(
-                                        context,
-                                        PriceMonitorService::class.java
-                                    ).apply {
-                                        action =
-                                            PriceMonitorService.ACTION_STOP
-                                    }
-
-                                context.startService(
-                                    intent
-                                )
-
-                                backgroundMonitoring =
-                                    false
-                            }
-                        },
-
-                        modifier =
-                            Modifier.fillMaxWidth()
-                    ) {
-
-                        Text(
-                            if (
-                                backgroundMonitoring
-                            ) {
-                                "STOP BACKGROUND MONITORING"
-                            } else {
-                                "START BACKGROUND MONITORING"
-                            }
-                        )
-                    }
-                }
-            }
-        }
-
+        /*
+         * CREATE PRICE ALERT
+         *
+         * Creating an alert automatically starts
+         * background monitoring.
+         */
         item {
 
             Card(
@@ -980,6 +918,9 @@ fun HappyTradingAlarmScreen(
                                 price > 0
                             ) {
 
+                                /*
+                                 * Save new alert.
+                                 */
                                 alerts.add(
                                     PriceAlert(
                                         symbol =
@@ -989,7 +930,13 @@ fun HappyTradingAlarmScreen(
                                             price,
 
                                         direction =
-                                            direction
+                                            direction,
+
+                                        enabled =
+                                            true,
+
+                                        triggered =
+                                            false
                                     )
                                 )
 
@@ -998,6 +945,45 @@ fun HappyTradingAlarmScreen(
                                     alerts
                                 )
 
+                                /*
+                                 * IMPORTANT:
+                                 * Automatically start background
+                                 * monitoring when a new alert is created.
+                                 */
+                                try {
+
+                                    val intent =
+                                        android.content.Intent(
+                                            context,
+                                            PriceMonitorService::class.java
+                                        ).apply {
+
+                                            action =
+                                                PriceMonitorService.ACTION_START
+                                        }
+
+                                    if (
+                                        Build.VERSION.SDK_INT >=
+                                        Build.VERSION_CODES.O
+                                    ) {
+
+                                        context.startForegroundService(
+                                            intent
+                                        )
+
+                                    } else {
+
+                                        context.startService(
+                                            intent
+                                        )
+                                    }
+
+                                } catch (_: Exception) {
+                                }
+
+                                /*
+                                 * Clear input.
+                                 */
                                 targetPriceText =
                                     ""
                             }
@@ -1011,10 +997,26 @@ fun HappyTradingAlarmScreen(
                             "🔔 CREATE ALERT"
                         )
                     }
+
+                    Spacer(
+                        Modifier.height(6.dp)
+                    )
+
+                    Text(
+                        "Background monitoring starts automatically.",
+
+                        style =
+                            MaterialTheme
+                                .typography
+                                .bodySmall
+                    )
                 }
             }
         }
 
+        /*
+         * TRADING TOOLS
+         */
         item {
 
             Card(
@@ -1053,6 +1055,9 @@ fun HappyTradingAlarmScreen(
             }
         }
 
+        /*
+         * ACTIVE ALERTS
+         */
         item {
 
             Text(
@@ -1188,7 +1193,9 @@ fun HappyTradingAlarmScreen(
                                 Modifier.fillMaxWidth()
                         ) {
 
-                            Text("DELETE")
+                            Text(
+                                "DELETE"
+                            )
                         }
                     }
                 }
@@ -1241,6 +1248,9 @@ fun SettingsScreen(
             Arrangement.spacedBy(12.dp)
     ) {
 
+        /*
+         * SETTINGS HEADER
+         */
         item {
 
             Row(
@@ -1255,7 +1265,10 @@ fun SettingsScreen(
                     onClick =
                         onBack
                 ) {
-                    Text("← BACK")
+
+                    Text(
+                        "← BACK"
+                    )
                 }
 
                 Spacer(
@@ -1276,6 +1289,9 @@ fun SettingsScreen(
             }
         }
 
+        /*
+         * ALARM SOUND
+         */
         item {
 
             Card(
@@ -1411,6 +1427,9 @@ fun SettingsScreen(
             }
         }
 
+        /*
+         * APPEARANCE
+         */
         item {
 
             Card(
@@ -1481,6 +1500,9 @@ fun SettingsScreen(
             }
         }
 
+        /*
+         * ABOUT
+         */
         item {
 
             Card(
@@ -1562,7 +1584,10 @@ fun AboutScreen(
                 onClick =
                     onBack
             ) {
-                Text("← BACK")
+
+                Text(
+                    "← BACK"
+                )
             }
         }
 
@@ -1581,6 +1606,45 @@ fun AboutScreen(
             )
         }
 
+        /*
+         * VERSION
+         */
+        item {
+
+            Card(
+                modifier =
+                    Modifier.fillMaxWidth()
+            ) {
+
+                Column(
+                    modifier =
+                        Modifier.padding(16.dp),
+
+                    horizontalAlignment =
+                        Alignment.CenterHorizontally
+                ) {
+
+                    Text(
+                        "HAPPY TRADING ALARM",
+
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+
+                    Spacer(
+                        Modifier.height(6.dp)
+                    )
+
+                    Text(
+                        "Version 1.0.0"
+                    )
+                }
+            }
+        }
+
+        /*
+         * HOW TO USE
+         */
         item {
 
             Card(
@@ -1611,10 +1675,10 @@ fun AboutScreen(
                             "4. Select Below if you want an alert when the price " +
                             "reaches or falls below your target.\n\n" +
                             "5. Press CREATE ALERT.\n\n" +
-                            "6. The application monitors the selected market and " +
-                            "triggers the alert when the target is reached.\n\n" +
-                            "7. BACKGROUND MONITORING can be enabled when you want " +
-                            "monitoring to continue outside the main screen.\n\n" +
+                            "6. Background monitoring starts automatically when " +
+                            "a new alert is created.\n\n" +
+                            "7. You can enable or disable individual alerts from " +
+                            "the ACTIVE ALERTS section.\n\n" +
                             "8. Alarm sound and appearance settings are available " +
                             "from SETTINGS.\n\n" +
                             "9. TRADING CALCULATOR provides profit/loss and " +
@@ -1624,6 +1688,9 @@ fun AboutScreen(
             }
         }
 
+        /*
+         * DEVELOPER
+         */
         item {
 
             Card(
@@ -1655,6 +1722,14 @@ fun AboutScreen(
                     )
 
                     Spacer(
+                        Modifier.height(8.dp)
+                    )
+
+                    Text(
+                        "Version 1.0.0"
+                    )
+
+                    Spacer(
                         Modifier.height(12.dp)
                     )
 
@@ -1665,6 +1740,9 @@ fun AboutScreen(
             }
         }
 
+        /*
+         * IMPORTANT
+         */
         item {
 
             Card(
@@ -1752,7 +1830,10 @@ fun TradingCalculatorScreen(
                     onClick =
                         onBack
                 ) {
-                    Text("← BACK")
+
+                    Text(
+                        "← BACK"
+                    )
                 }
 
                 Spacer(
@@ -1773,6 +1854,9 @@ fun TradingCalculatorScreen(
             }
         }
 
+        /*
+         * PROFIT / LOSS
+         */
         item {
 
             Card(
@@ -1808,7 +1892,9 @@ fun TradingCalculatorScreen(
                             Modifier.fillMaxWidth(),
 
                         label = {
-                            Text("Entry Price")
+                            Text(
+                                "Entry Price"
+                            )
                         },
 
                         singleLine = true
@@ -1831,7 +1917,9 @@ fun TradingCalculatorScreen(
                             Modifier.fillMaxWidth(),
 
                         label = {
-                            Text("Exit Price")
+                            Text(
+                                "Exit Price"
+                            )
                         },
 
                         singleLine = true
@@ -1854,7 +1942,9 @@ fun TradingCalculatorScreen(
                             Modifier.fillMaxWidth(),
 
                         label = {
-                            Text("Margin / Capital")
+                            Text(
+                                "Margin / Capital"
+                            )
                         },
 
                         singleLine = true
@@ -1877,7 +1967,9 @@ fun TradingCalculatorScreen(
                             Modifier.fillMaxWidth(),
 
                         label = {
-                            Text("Leverage")
+                            Text(
+                                "Leverage"
+                            )
                         },
 
                         singleLine = true
@@ -2093,6 +2185,7 @@ fun TradingCalculatorScreen(
 
                         Text(
                             resultText,
+
                             fontWeight =
                                 FontWeight.Bold
                         )
@@ -2101,6 +2194,9 @@ fun TradingCalculatorScreen(
             }
         }
 
+        /*
+         * LIQUIDATION ESTIMATOR
+         */
         item {
 
             Card(
@@ -2339,6 +2435,7 @@ fun showPriceAlertNotification(
             ) !=
             PackageManager.PERMISSION_GRANTED
         ) {
+
             return
         }
     }
@@ -2393,8 +2490,11 @@ fun showPriceAlertNotification(
         }
 
     builder
+        /*
+         * Custom Happy Trading Alarm icon.
+         */
         .setSmallIcon(
-            android.R.drawable.ic_dialog_alert
+            R.drawable.ic_happy_trading_alarm
         )
         .setContentTitle(title)
         .setContentText(message)
@@ -2494,6 +2594,7 @@ fun loadAlerts(
         if (
             saved.isNullOrEmpty()
         ) {
+
             return emptyList()
         }
 
