@@ -54,919 +54,349 @@ import java.text.NumberFormat
 import java.util.Locale
 
 data class PriceAlert(
-val symbol: String,
-val targetPrice: Double,
-val direction: String,
-var enabled: Boolean = true,
-var triggered: Boolean = false
+    val symbol: String,
+    val targetPrice: Double,
+    val direction: String,
+    var enabled: Boolean = true,
+    var triggered: Boolean = false
 )
 
 data class PriceResult(
-val price: Double?,
-val error: String? = null
+    val price: Double?,
+    val error: String? = null
 )
 
 data class AlarmSound(
-val id: String,
-val name: String,
-val uriType: Int
+    val id: String,
+    val name: String,
+    val uriType: Int
 )
 
 class MainActivity : ComponentActivity() {
 
-```
-private var testRingtone: Ringtone? = null
+    private var testRingtone: Ringtone? = null
 
-private val notificationPermissionLauncher =
-    registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { }
+    private val notificationPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { }
 
-override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
 
-    createAllNotificationChannels()
-    requestNotificationPermission()
+        createAllNotificationChannels()
+        requestNotificationPermission()
 
-    setContent {
-        MaterialTheme {
-            HappyTradingAlarmScreen(
-                context = this,
-                onAlarmTriggered = { alert, currentPrice ->
+        setContent {
+            MaterialTheme {
+                HappyTradingAlarmScreen(
+                    context = this,
+                    onAlarmTriggered = { alert, currentPrice ->
 
-                    playSelectedAlarmSound()
+                        playSelectedAlarmSound()
 
-                    showPriceAlertNotification(
-                        context = this,
-                        alert = alert,
-                        currentPrice = currentPrice
-                    )
-                }
-            )
-        }
-    }
-}
-
-private fun requestNotificationPermission() {
-
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-
-        if (
-            checkSelfPermission(
-                Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-
-            notificationPermissionLauncher.launch(
-                Manifest.permission.POST_NOTIFICATIONS
-            )
-        }
-    }
-}
-
-private fun playSelectedAlarmSound() {
-
-    try {
-        testRingtone?.stop()
-
-        val uri =
-            getSelectedAlarmSoundUri(this)
-
-        if (uri != null) {
-
-            testRingtone =
-                RingtoneManager.getRingtone(
-                    this,
-                    uri
+                        showPriceAlertNotification(
+                            context = this,
+                            alert = alert,
+                            currentPrice = currentPrice
+                        )
+                    }
                 )
-
-            testRingtone?.play()
+            }
         }
-
-    } catch (_: Exception) {
-    }
-}
-
-private fun createAllNotificationChannels() {
-
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-        return
     }
 
-    val manager =
-        getSystemService(
-            NotificationManager::class.java
-        )
+    private fun requestNotificationPermission() {
 
-    val sounds =
-        getAlarmSounds()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
 
-    sounds.forEach { sound ->
+            if (
+                checkSelfPermission(
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
 
-        val channelId =
-            getNotificationChannelId(sound.id)
-
-        val existingChannel =
-            manager.getNotificationChannel(channelId)
-
-        if (existingChannel == null) {
-
-            val channel =
-                NotificationChannel(
-                    channelId,
-                    "Price Alerts — ${sound.name}",
-                    NotificationManager.IMPORTANCE_HIGH
+                notificationPermissionLauncher.launch(
+                    Manifest.permission.POST_NOTIFICATIONS
                 )
+            }
+        }
+    }
 
-            channel.description =
-                "Happy Trading Alarm price alerts"
+    private fun playSelectedAlarmSound() {
 
-            channel.enableVibration(true)
+        try {
+            testRingtone?.stop()
 
             val uri =
-                RingtoneManager.getDefaultUri(
-                    sound.uriType
-                )
+                getSelectedAlarmSoundUri(this)
 
-            channel.setSound(
-                uri,
-                AudioAttributes.Builder()
-                    .setUsage(
-                        AudioAttributes.USAGE_ALARM
+            if (uri != null) {
+
+                testRingtone =
+                    RingtoneManager.getRingtone(
+                        this,
+                        uri
                     )
-                    .build()
-            )
 
-            manager.createNotificationChannel(
-                channel
-            )
+                testRingtone?.play()
+            }
+
+        } catch (_: Exception) {
         }
     }
-}
 
-override fun onDestroy() {
+    private fun createAllNotificationChannels() {
 
-    testRingtone?.stop()
-    testRingtone = null
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return
+        }
 
-    super.onDestroy()
-}
-```
+        val manager =
+            getSystemService(
+                NotificationManager::class.java
+            )
 
+        val sounds =
+            getAlarmSounds()
+
+        sounds.forEach { sound ->
+
+            val channelId =
+                getNotificationChannelId(sound.id)
+
+            val existingChannel =
+                manager.getNotificationChannel(channelId)
+
+            if (existingChannel == null) {
+
+                val channel =
+                    NotificationChannel(
+                        channelId,
+                        "Price Alerts — ${sound.name}",
+                        NotificationManager.IMPORTANCE_HIGH
+                    )
+
+                channel.description =
+                    "Happy Trading Alarm price alerts"
+
+                channel.enableVibration(true)
+
+                val uri =
+                    RingtoneManager.getDefaultUri(
+                        sound.uriType
+                    )
+
+                channel.setSound(
+                    uri,
+                    AudioAttributes.Builder()
+                        .setUsage(
+                            AudioAttributes.USAGE_ALARM
+                        )
+                        .build()
+                )
+
+                manager.createNotificationChannel(
+                    channel
+                )
+            }
+        }
+    }
+
+    override fun onDestroy() {
+
+        testRingtone?.stop()
+        testRingtone = null
+
+        super.onDestroy()
+    }
 }
 
 @Composable
 fun HappyTradingAlarmScreen(
-context: Context,
-onAlarmTriggered: (
-PriceAlert,
-Double
-) -> Unit
+    context: Context,
+    onAlarmTriggered: (
+        PriceAlert,
+        Double
+    ) -> Unit
 ) {
 
-```
-var selectedCoin by remember {
-    mutableStateOf("BTC / USDT")
-}
+    var selectedCoin by remember {
+        mutableStateOf("BTC / USDT")
+    }
 
-var menuExpanded by remember {
-    mutableStateOf(false)
-}
+    var menuExpanded by remember {
+        mutableStateOf(false)
+    }
 
-var targetPriceText by remember {
-    mutableStateOf("")
-}
+    var targetPriceText by remember {
+        mutableStateOf("")
+    }
 
-var direction by remember {
-    mutableStateOf("Above")
-}
+    var direction by remember {
+        mutableStateOf("Above")
+    }
 
-var currentPrice by remember {
-    mutableStateOf<Double?>(null)
-}
+    var currentPrice by remember {
+        mutableStateOf<Double?>(null)
+    }
 
-var connectionStatus by remember {
-    mutableStateOf("Connecting...")
-}
+    var connectionStatus by remember {
+        mutableStateOf("Connecting...")
+    }
 
-var backgroundMonitoring by remember {
-    mutableStateOf(false)
-}
+    var backgroundMonitoring by remember {
+        mutableStateOf(false)
+    }
 
-var soundMenuExpanded by remember {
-    mutableStateOf(false)
-}
+    var soundMenuExpanded by remember {
+        mutableStateOf(false)
+    }
 
-var selectedSoundId by remember {
-    mutableStateOf(
-        getSavedAlarmSoundId(context)
+    var selectedSoundId by remember {
+        mutableStateOf(
+            getSavedAlarmSoundId(context)
+        )
+    }
+
+    val alerts = remember {
+        mutableStateListOf<PriceAlert>()
+    }
+
+    val coins = listOf(
+        "BTC / USDT",
+        "ETH / USDT",
+        "SOL / USDT",
+        "XRP / USDT",
+        "BNB / USDT",
+        "DOGE / USDT"
     )
-}
 
-val alerts = remember {
-    mutableStateListOf<PriceAlert>()
-}
-
-val coins = listOf(
-    "BTC / USDT",
-    "ETH / USDT",
-    "SOL / USDT",
-    "XRP / USDT",
-    "BNB / USDT",
-    "DOGE / USDT"
-)
-
-val alarmSounds =
-    remember {
-        getAlarmSounds()
-    }
-
-val selectedSound =
-    alarmSounds.firstOrNull {
-        it.id == selectedSoundId
-    } ?: alarmSounds.first()
-
-LaunchedEffect(Unit) {
-
-    val savedAlerts =
-        loadAlerts(context)
-
-    alerts.clear()
-    alerts.addAll(savedAlerts)
-}
-
-LaunchedEffect(selectedCoin) {
-
-    while (true) {
-
-        val result =
-            withContext(Dispatchers.IO) {
-                getTabdealPrice(selectedCoin)
-            }
-
-        if (result.price != null) {
-
-            currentPrice =
-                result.price
-
-            connectionStatus =
-                "● Connected"
-
-            alerts.forEachIndexed { index, alert ->
-
-                if (
-                    alert.enabled &&
-                    !alert.triggered &&
-                    alert.symbol == selectedCoin
-                ) {
-
-                    val reached =
-                        if (alert.direction == "Above") {
-
-                            result.price >=
-                                alert.targetPrice
-
-                        } else {
-
-                            result.price <=
-                                alert.targetPrice
-                        }
-
-                    if (reached) {
-
-                        val triggeredAlert =
-                            alert.copy(
-                                triggered = true,
-                                enabled = false
-                            )
-
-                        alerts[index] =
-                            triggeredAlert
-
-                        saveAlerts(
-                            context,
-                            alerts
-                        )
-
-                        onAlarmTriggered(
-                            triggeredAlert,
-                            result.price
-                        )
-                    }
-                }
-            }
-
-        } else {
-
-            connectionStatus =
-                "● Connection failed"
+    val alarmSounds =
+        remember {
+            getAlarmSounds()
         }
 
-        delay(1000)
-    }
-}
+    val selectedSound =
+        alarmSounds.firstOrNull {
+            it.id == selectedSoundId
+        } ?: alarmSounds.first()
 
-LazyColumn(
-    modifier =
-        Modifier
-            .fillMaxSize()
-            .padding(20.dp),
+    LaunchedEffect(Unit) {
 
-    verticalArrangement =
-        Arrangement.spacedBy(12.dp)
-) {
+        val savedAlerts =
+            loadAlerts(context)
 
-    item {
-
-        Text(
-            text =
-                "HAPPY TRADING ALARM",
-
-            style =
-                MaterialTheme.typography
-                    .headlineSmall,
-
-            fontWeight =
-                FontWeight.Bold
-        )
-
-        Text(
-            text =
-                "Real-time Crypto Price Alert",
-
-            style =
-                MaterialTheme.typography
-                    .bodyMedium
-        )
+        alerts.clear()
+        alerts.addAll(savedAlerts)
     }
 
-    item {
+    LaunchedEffect(selectedCoin) {
 
-        Card(
-            modifier =
-                Modifier.fillMaxWidth()
-        ) {
+        while (true) {
 
-            Column(
-                modifier =
-                    Modifier.padding(16.dp)
-            ) {
-
-                Text(
-                    text =
-                        "Cryptocurrency",
-
-                    fontWeight =
-                        FontWeight.Bold
-                )
-
-                Spacer(
-                    modifier =
-                        Modifier.height(8.dp)
-                )
-
-                OutlinedButton(
-                    onClick = {
-                        menuExpanded = true
-                    },
-
-                    modifier =
-                        Modifier.fillMaxWidth()
-                ) {
-
-                    Text(selectedCoin)
+            val result =
+                withContext(Dispatchers.IO) {
+                    getTabdealPrice(selectedCoin)
                 }
 
-                DropdownMenu(
-                    expanded =
-                        menuExpanded,
+            if (result.price != null) {
 
-                    onDismissRequest = {
-                        menuExpanded = false
-                    }
-                ) {
+                currentPrice =
+                    result.price
 
-                    coins.forEach { coin ->
+                connectionStatus =
+                    "● Connected"
 
-                        DropdownMenuItem(
-                            text = {
-                                Text(coin)
-                            },
+                alerts.forEachIndexed { index, alert ->
 
-                            onClick = {
-
-                                selectedCoin =
-                                    coin
-
-                                menuExpanded =
-                                    false
-
-                                currentPrice =
-                                    null
-
-                                connectionStatus =
-                                    "Connecting..."
-                            }
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    item {
-
-        Card(
-            modifier =
-                Modifier.fillMaxWidth()
-        ) {
-
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-
-                horizontalAlignment =
-                    Alignment.CenterHorizontally
-            ) {
-
-                Text(
-                    text =
-                        "CURRENT PRICE",
-
-                    fontWeight =
-                        FontWeight.Bold
-                )
-
-                Spacer(
-                    modifier =
-                        Modifier.height(8.dp)
-                )
-
-                Text(
-                    text =
-                        if (
-                            currentPrice != null
-                        ) {
-
-                            formatPrice(
-                                currentPrice!!
-                            )
-
-                        } else {
-
-                            "--"
-                        },
-
-                    style =
-                        MaterialTheme.typography
-                            .headlineMedium,
-
-                    fontWeight =
-                        FontWeight.Bold
-                )
-
-                Spacer(
-                    modifier =
-                        Modifier.height(6.dp)
-                )
-
-                Text(connectionStatus)
-
-                Spacer(
-                    modifier =
-                        Modifier.height(4.dp)
-                )
-
-                Text(
-                    text =
-                        "Auto refresh: 1 second",
-
-                    style =
-                        MaterialTheme.typography
-                            .bodySmall
-                )
-            }
-        }
-    }
-
-    item {
-
-        Card(
-            modifier =
-                Modifier.fillMaxWidth()
-        ) {
-
-            Column(
-                modifier =
-                    Modifier.padding(16.dp)
-            ) {
-
-                Text(
-                    text =
-                        "ALARM SOUND",
-
-                    fontWeight =
-                        FontWeight.Bold
-                )
-
-                Spacer(
-                    modifier =
-                        Modifier.height(8.dp)
-                )
-
-                OutlinedButton(
-                    onClick = {
-                        soundMenuExpanded = true
-                    },
-
-                    modifier =
-                        Modifier.fillMaxWidth()
-                ) {
-
-                    Text(
-                        "🔔 ${selectedSound.name}"
-                    )
-                }
-
-                DropdownMenu(
-                    expanded =
-                        soundMenuExpanded,
-
-                    onDismissRequest = {
-                        soundMenuExpanded = false
-                    }
-                ) {
-
-                    alarmSounds.forEach { sound ->
-
-                        DropdownMenuItem(
-                            text = {
-                                Text(sound.name)
-                            },
-
-                            onClick = {
-
-                                selectedSoundId =
-                                    sound.id
-
-                                saveAlarmSoundId(
-                                    context,
-                                    sound.id
-                                )
-
-                                soundMenuExpanded =
-                                    false
-                            }
-                        )
-                    }
-                }
-
-                Spacer(
-                    modifier =
-                        Modifier.height(8.dp)
-                )
-
-                OutlinedButton(
-                    onClick = {
-
-                        playAlarmSoundForTest(
-                            context,
-                            selectedSoundId
-                        )
-                    },
-
-                    modifier =
-                        Modifier.fillMaxWidth()
-                ) {
-
-                    Text(
-                        "▶ TEST SOUND"
-                    )
-                }
-
-                Spacer(
-                    modifier =
-                        Modifier.height(6.dp)
-                )
-
-                Text(
-                    text =
-                        "Selected sound: ${selectedSound.name}",
-
-                    style =
-                        MaterialTheme.typography
-                            .bodySmall
-                )
-            }
-        }
-    }
-
-    item {
-
-        Card(
-            modifier =
-                Modifier.fillMaxWidth()
-        ) {
-
-            Column(
-                modifier =
-                    Modifier.padding(16.dp)
-            ) {
-
-                Text(
-                    text =
-                        "BACKGROUND MONITORING",
-
-                    fontWeight =
-                        FontWeight.Bold
-                )
-
-                Spacer(
-                    modifier =
-                        Modifier.height(8.dp)
-                )
-
-                Text(
-                    text =
-                        if (backgroundMonitoring)
-                            "● Monitoring Active"
-                        else
-                            "○ Monitoring Off"
-                )
-
-                Spacer(
-                    modifier =
-                        Modifier.height(10.dp)
-                )
-
-                Button(
-                    onClick = {
-
-                        if (!backgroundMonitoring) {
-
-                            val intent =
-                                android.content.Intent(
-                                    context,
-                                    PriceMonitorService::class.java
-                                ).apply {
-                                    action =
-                                        PriceMonitorService
-                                            .ACTION_START
-                                }
-
-                            if (
-                                Build.VERSION.SDK_INT >=
-                                Build.VERSION_CODES.O
-                            ) {
-
-                                context.startForegroundService(
-                                    intent
-                                )
-
-                            } else {
-
-                                context.startService(
-                                    intent
-                                )
-                            }
-
-                            backgroundMonitoring =
-                                true
-
-                        } else {
-
-                            val intent =
-                                android.content.Intent(
-                                    context,
-                                    PriceMonitorService::class.java
-                                ).apply {
-                                    action =
-                                        PriceMonitorService
-                                            .ACTION_STOP
-                                }
-
-                            context.startService(intent)
-
-                            backgroundMonitoring =
-                                false
-                        }
-                    },
-
-                    modifier =
-                        Modifier.fillMaxWidth()
-                ) {
-
-                    Text(
-                        if (backgroundMonitoring)
-                            "STOP BACKGROUND MONITORING"
-                        else
-                            "START BACKGROUND MONITORING"
-                    )
-                }
-            }
-        }
-    }
-
-    item {
-
-        Card(
-            modifier =
-                Modifier.fillMaxWidth()
-        ) {
-
-            Column(
-                modifier =
-                    Modifier.padding(16.dp)
-            ) {
-
-                Text(
-                    text =
-                        "CREATE PRICE ALERT",
-
-                    fontWeight =
-                        FontWeight.Bold
-                )
-
-                Spacer(
-                    modifier =
-                        Modifier.height(10.dp)
-                )
-
-                OutlinedTextField(
-                    value =
-                        targetPriceText,
-
-                    onValueChange = {
-                        targetPriceText =
-                            it
-                    },
-
-                    modifier =
-                        Modifier.fillMaxWidth(),
-
-                    label = {
-                        Text("Target Price")
-                    },
-
-                    singleLine = true
-                )
-
-                Spacer(
-                    modifier =
-                        Modifier.height(10.dp)
-                )
-
-                Row(
-                    modifier =
-                        Modifier.fillMaxWidth(),
-
-                    horizontalArrangement =
-                        Arrangement.spacedBy(8.dp)
-                ) {
-
-                    OutlinedButton(
-                        onClick = {
-                            direction =
-                                "Above"
-                        },
-
-                        modifier =
-                            Modifier.weight(1f)
+                    if (
+                        alert.enabled &&
+                        !alert.triggered &&
+                        alert.symbol == selectedCoin
                     ) {
 
-                        Text(
-                            if (
-                                direction ==
-                                "Above"
-                            ) {
-                                "✓ Above"
+                        val reached =
+                            if (alert.direction == "Above") {
+
+                                result.price >=
+                                    alert.targetPrice
+
                             } else {
-                                "Above"
+
+                                result.price <=
+                                    alert.targetPrice
                             }
-                        )
-                    }
 
-                    OutlinedButton(
-                        onClick = {
-                            direction =
-                                "Below"
-                        },
+                        if (reached) {
 
-                        modifier =
-                            Modifier.weight(1f)
-                    ) {
-
-                        Text(
-                            if (
-                                direction ==
-                                "Below"
-                            ) {
-                                "✓ Below"
-                            } else {
-                                "Below"
-                            }
-                        )
-                    }
-                }
-
-                Spacer(
-                    modifier =
-                        Modifier.height(10.dp)
-                )
-
-                Button(
-                    onClick = {
-
-                        val price =
-                            targetPriceText
-                                .replace(",", "")
-                                .trim()
-                                .toDoubleOrNull()
-
-                        if (
-                            price != null &&
-                            price > 0
-                        ) {
-
-                            val newAlert =
-                                PriceAlert(
-                                    symbol =
-                                        selectedCoin,
-
-                                    targetPrice =
-                                        price,
-
-                                    direction =
-                                        direction
+                            val triggeredAlert =
+                                alert.copy(
+                                    triggered = true,
+                                    enabled = false
                                 )
 
-                            alerts.add(
-                                newAlert
-                            )
+                            alerts[index] =
+                                triggeredAlert
 
                             saveAlerts(
                                 context,
                                 alerts
                             )
 
-                            targetPriceText =
-                                ""
+                            onAlarmTriggered(
+                                triggeredAlert,
+                                result.price
+                            )
                         }
-                    },
-
-                    modifier =
-                        Modifier.fillMaxWidth()
-                ) {
-
-                    Text(
-                        "🔔 CREATE ALERT"
-                    )
+                    }
                 }
+
+            } else {
+
+                connectionStatus =
+                    "● Connection failed"
             }
+
+            delay(1000)
         }
     }
 
-    item {
+    LazyColumn(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(20.dp),
 
-        Text(
-            text =
-                "ACTIVE ALERTS",
-
-            style =
-                MaterialTheme.typography
-                    .titleLarge,
-
-            fontWeight =
-                FontWeight.Bold
-        )
-    }
-
-    if (alerts.isEmpty()) {
+        verticalArrangement =
+            Arrangement.spacedBy(12.dp)
+    ) {
 
         item {
 
-            Card(
-                modifier =
-                    Modifier.fillMaxWidth()
-            ) {
+            Text(
+                text =
+                    "HAPPY TRADING ALARM",
 
-                Text(
-                    text =
-                        "No active alerts",
+                style =
+                    MaterialTheme.typography
+                        .headlineSmall,
 
-                    modifier =
-                        Modifier.padding(16.dp)
-                )
-            }
+                fontWeight =
+                    FontWeight.Bold
+            )
+
+            Text(
+                text =
+                    "Real-time Crypto Price Alert",
+
+                style =
+                    MaterialTheme.typography
+                        .bodyMedium
+            )
         }
 
-    } else {
-
-        itemsIndexed(alerts) {
-            index,
-            alert ->
+        item {
 
             Card(
                 modifier =
@@ -978,89 +408,215 @@ LazyColumn(
                         Modifier.padding(16.dp)
                 ) {
 
-                    Row(
-                        modifier =
-                            Modifier.fillMaxWidth(),
+                    Text(
+                        text =
+                            "Cryptocurrency",
 
-                        verticalAlignment =
-                            Alignment.CenterVertically
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(8.dp)
+                    )
+
+                    OutlinedButton(
+                        onClick = {
+                            menuExpanded = true
+                        },
+
+                        modifier =
+                            Modifier.fillMaxWidth()
                     ) {
 
-                        Column(
-                            modifier =
-                                Modifier.weight(1f)
-                        ) {
+                        Text(selectedCoin)
+                    }
 
-                            Text(
-                                text =
-                                    alert.symbol,
+                    DropdownMenu(
+                        expanded =
+                            menuExpanded,
 
-                                fontWeight =
-                                    FontWeight.Bold
+                        onDismissRequest = {
+                            menuExpanded = false
+                        }
+                    ) {
+
+                        coins.forEach { coin ->
+
+                            DropdownMenuItem(
+                                text = {
+                                    Text(coin)
+                                },
+
+                                onClick = {
+
+                                    selectedCoin =
+                                        coin
+
+                                    menuExpanded =
+                                        false
+
+                                    currentPrice =
+                                        null
+
+                                    connectionStatus =
+                                        "Connecting..."
+                                }
                             )
+                        }
+                    }
+                }
+            }
+        }
 
-                            Text(
-                                text =
-                                    "${alert.direction} " +
-                                    formatPrice(
-                                        alert.targetPrice
-                                    )
-                            )
+        item {
 
+            Card(
+                modifier =
+                    Modifier.fillMaxWidth()
+            ) {
+
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+
+                    horizontalAlignment =
+                        Alignment.CenterHorizontally
+                ) {
+
+                    Text(
+                        text =
+                            "CURRENT PRICE",
+
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(8.dp)
+                    )
+
+                    Text(
+                        text =
                             if (
-                                alert.triggered
+                                currentPrice != null
                             ) {
 
-                                Text(
-                                    text =
-                                        "🔔 TRIGGERED",
-
-                                    fontWeight =
-                                        FontWeight.Bold
-                                )
-
-                            } else if (
-                                alert.enabled
-                            ) {
-
-                                Text(
-                                    text =
-                                        "Waiting..."
+                                formatPrice(
+                                    currentPrice!!
                                 )
 
                             } else {
 
-                                Text(
-                                    text =
-                                        "Disabled"
-                                )
-                            }
+                                "--"
+                            },
+
+                        style =
+                            MaterialTheme.typography
+                                .headlineMedium,
+
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(6.dp)
+                    )
+
+                    Text(connectionStatus)
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(4.dp)
+                    )
+
+                    Text(
+                        text =
+                            "Auto refresh: 1 second",
+
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall
+                    )
+                }
+            }
+        }
+
+        item {
+
+            Card(
+                modifier =
+                    Modifier.fillMaxWidth()
+            ) {
+
+                Column(
+                    modifier =
+                        Modifier.padding(16.dp)
+                ) {
+
+                    Text(
+                        text =
+                            "ALARM SOUND",
+
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(8.dp)
+                    )
+
+                    OutlinedButton(
+                        onClick = {
+                            soundMenuExpanded = true
+                        },
+
+                        modifier =
+                            Modifier.fillMaxWidth()
+                    ) {
+
+                        Text(
+                            "🔔 ${selectedSound.name}"
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded =
+                            soundMenuExpanded,
+
+                        onDismissRequest = {
+                            soundMenuExpanded = false
                         }
+                    ) {
 
-                        Switch(
-                            checked =
-                                alert.enabled,
+                        alarmSounds.forEach { sound ->
 
-                            onCheckedChange = {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(sound.name)
+                                },
 
-                                val updatedAlert =
-                                    alert.copy(
-                                        enabled =
-                                            it,
+                                onClick = {
 
-                                        triggered =
-                                            false
+                                    selectedSoundId =
+                                        sound.id
+
+                                    saveAlarmSoundId(
+                                        context,
+                                        sound.id
                                     )
 
-                                alerts[index] =
-                                    updatedAlert
-
-                                saveAlerts(
-                                    context,
-                                    alerts
-                                )
-                            }
-                        )
+                                    soundMenuExpanded =
+                                        false
+                                }
+                            )
+                        }
                     }
 
                     Spacer(
@@ -1071,13 +627,9 @@ LazyColumn(
                     OutlinedButton(
                         onClick = {
 
-                            alerts.removeAt(
-                                index
-                            )
-
-                            saveAlerts(
+                            playAlarmSoundForTest(
                                 context,
-                                alerts
+                                selectedSoundId
                             )
                         },
 
@@ -1085,566 +637,935 @@ LazyColumn(
                             Modifier.fillMaxWidth()
                     ) {
 
-                        Text("DELETE")
+                        Text(
+                            "▶ TEST SOUND"
+                        )
+                    }
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(6.dp)
+                    )
+
+                    Text(
+                        text =
+                            "Selected sound: ${selectedSound.name}",
+
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall
+                    )
+                }
+            }
+        }
+
+        item {
+
+            Card(
+                modifier =
+                    Modifier.fillMaxWidth()
+            ) {
+
+                Column(
+                    modifier =
+                        Modifier.padding(16.dp)
+                ) {
+
+                    Text(
+                        text =
+                            "BACKGROUND MONITORING",
+
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(8.dp)
+                    )
+
+                    Text(
+                        text =
+                            if (backgroundMonitoring)
+                                "● Monitoring Active"
+                            else
+                                "○ Monitoring Off"
+                    )
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(10.dp)
+                    )
+
+                    Button(
+                        onClick = {
+
+                            if (!backgroundMonitoring) {
+
+                                val intent =
+                                    android.content.Intent(
+                                        context,
+                                        PriceMonitorService::class.java
+                                    ).apply {
+                                        action =
+                                            PriceMonitorService
+                                                .ACTION_START
+                                    }
+
+                                if (
+                                    Build.VERSION.SDK_INT >=
+                                    Build.VERSION_CODES.O
+                                ) {
+
+                                    context.startForegroundService(
+                                        intent
+                                    )
+
+                                } else {
+
+                                    context.startService(
+                                        intent
+                                    )
+                                }
+
+                                backgroundMonitoring =
+                                    true
+
+                            } else {
+
+                                val intent =
+                                    android.content.Intent(
+                                        context,
+                                        PriceMonitorService::class.java
+                                    ).apply {
+                                        action =
+                                            PriceMonitorService
+                                                .ACTION_STOP
+                                    }
+
+                                context.startService(intent)
+
+                                backgroundMonitoring =
+                                    false
+                            }
+                        },
+
+                        modifier =
+                            Modifier.fillMaxWidth()
+                    ) {
+
+                        Text(
+                            if (backgroundMonitoring)
+                                "STOP BACKGROUND MONITORING"
+                            else
+                                "START BACKGROUND MONITORING"
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+
+            Card(
+                modifier =
+                    Modifier.fillMaxWidth()
+            ) {
+
+                Column(
+                    modifier =
+                        Modifier.padding(16.dp)
+                ) {
+
+                    Text(
+                        text =
+                            "CREATE PRICE ALERT",
+
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(10.dp)
+                    )
+
+                    OutlinedTextField(
+                        value =
+                            targetPriceText,
+
+                        onValueChange = {
+                            targetPriceText =
+                                it
+                        },
+
+                        modifier =
+                            Modifier.fillMaxWidth(),
+
+                        label = {
+                            Text("Target Price")
+                        },
+
+                        singleLine = true
+                    )
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(10.dp)
+                    )
+
+                    Row(
+                        modifier =
+                            Modifier.fillMaxWidth(),
+
+                        horizontalArrangement =
+                            Arrangement.spacedBy(8.dp)
+                    ) {
+
+                        OutlinedButton(
+                            onClick = {
+                                direction =
+                                    "Above"
+                            },
+
+                            modifier =
+                                Modifier.weight(1f)
+                        ) {
+
+                            Text(
+                                if (
+                                    direction ==
+                                    "Above"
+                                ) {
+                                    "✓ Above"
+                                } else {
+                                    "Above"
+                                }
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                direction =
+                                    "Below"
+                            },
+
+                            modifier =
+                                Modifier.weight(1f)
+                        ) {
+
+                            Text(
+                                if (
+                                    direction ==
+                                    "Below"
+                                ) {
+                                    "✓ Below"
+                                } else {
+                                    "Below"
+                                }
+                            )
+                        }
+                    }
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(10.dp)
+                    )
+
+                    Button(
+                        onClick = {
+
+                            val price =
+                                targetPriceText
+                                    .replace(",", "")
+                                    .trim()
+                                    .toDoubleOrNull()
+
+                            if (
+                                price != null &&
+                                price > 0
+                            ) {
+
+                                val newAlert =
+                                    PriceAlert(
+                                        symbol =
+                                            selectedCoin,
+
+                                        targetPrice =
+                                            price,
+
+                                        direction =
+                                            direction
+                                    )
+
+                                alerts.add(
+                                    newAlert
+                                )
+
+                                saveAlerts(
+                                    context,
+                                    alerts
+                                )
+
+                                targetPriceText =
+                                    ""
+                            }
+                        },
+
+                        modifier =
+                            Modifier.fillMaxWidth()
+                    ) {
+
+                        Text(
+                            "🔔 CREATE ALERT"
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+
+            Text(
+                text =
+                    "ACTIVE ALERTS",
+
+                style =
+                    MaterialTheme.typography
+                        .titleLarge,
+
+                fontWeight =
+                    FontWeight.Bold
+            )
+        }
+
+        if (alerts.isEmpty()) {
+
+            item {
+
+                Card(
+                    modifier =
+                        Modifier.fillMaxWidth()
+                ) {
+
+                    Text(
+                        text =
+                            "No active alerts",
+
+                        modifier =
+                            Modifier.padding(16.dp)
+                    )
+                }
+            }
+
+        } else {
+
+            itemsIndexed(alerts) {
+                index,
+                alert ->
+
+                Card(
+                    modifier =
+                        Modifier.fillMaxWidth()
+                ) {
+
+                    Column(
+                        modifier =
+                            Modifier.padding(16.dp)
+                    ) {
+
+                        Row(
+                            modifier =
+                                Modifier.fillMaxWidth(),
+
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+
+                            Column(
+                                modifier =
+                                    Modifier.weight(1f)
+                            ) {
+
+                                Text(
+                                    text =
+                                        alert.symbol,
+
+                                    fontWeight =
+                                        FontWeight.Bold
+                                )
+
+                                Text(
+                                    text =
+                                        "${alert.direction} " +
+                                        formatPrice(
+                                            alert.targetPrice
+                                        )
+                                )
+
+                                if (
+                                    alert.triggered
+                                ) {
+
+                                    Text(
+                                        text =
+                                            "🔔 TRIGGERED",
+
+                                        fontWeight =
+                                            FontWeight.Bold
+                                    )
+
+                                } else if (
+                                    alert.enabled
+                                ) {
+
+                                    Text(
+                                        text =
+                                            "Waiting..."
+                                    )
+
+                                } else {
+
+                                    Text(
+                                        text =
+                                            "Disabled"
+                                    )
+                                }
+                            }
+
+                            Switch(
+                                checked =
+                                    alert.enabled,
+
+                                onCheckedChange = {
+
+                                    val updatedAlert =
+                                        alert.copy(
+                                            enabled =
+                                                it,
+
+                                            triggered =
+                                                false
+                                        )
+
+                                    alerts[index] =
+                                        updatedAlert
+
+                                    saveAlerts(
+                                        context,
+                                        alerts
+                                    )
+                                }
+                            )
+                        }
+
+                        Spacer(
+                            modifier =
+                                Modifier.height(8.dp)
+                        )
+
+                        OutlinedButton(
+                            onClick = {
+
+                                alerts.removeAt(
+                                    index
+                                )
+
+                                saveAlerts(
+                                    context,
+                                    alerts
+                                )
+                            },
+
+                            modifier =
+                                Modifier.fillMaxWidth()
+                        ) {
+
+                            Text("DELETE")
+                        }
                     }
                 }
             }
         }
     }
 }
-```
-
-}
-
-/*
-
-* ---
-* ALARM SOUND
-* ---
-
-*/
 
 private const val ALARM_SOUND_PREFS =
-"happy_trading_alarm_prefs"
+    "happy_trading_alarm_prefs"
 
 private const val ALARM_SOUND_KEY =
-"selected_alarm_sound"
+    "selected_alarm_sound"
 
 fun getAlarmSounds(): List<AlarmSound> {
 
-```
-return listOf(
+    return listOf(
 
-    AlarmSound(
-        id = "notification",
-        name = "Default Notification",
-        uriType =
-            RingtoneManager.TYPE_NOTIFICATION
-    ),
+        AlarmSound(
+            id = "notification",
+            name = "Default Notification",
+            uriType =
+                RingtoneManager.TYPE_NOTIFICATION
+        ),
 
-    AlarmSound(
-        id = "alarm",
-        name = "Default Alarm",
-        uriType =
-            RingtoneManager.TYPE_ALARM
-    ),
+        AlarmSound(
+            id = "alarm",
+            name = "Default Alarm",
+            uriType =
+                RingtoneManager.TYPE_ALARM
+        ),
 
-    AlarmSound(
-        id = "ringtone",
-        name = "Default Ringtone",
-        uriType =
-            RingtoneManager.TYPE_RINGTONE
+        AlarmSound(
+            id = "ringtone",
+            name = "Default Ringtone",
+            uriType =
+                RingtoneManager.TYPE_RINGTONE
+        )
     )
-)
-```
-
 }
 
 fun getSavedAlarmSoundId(
-context: Context
+    context: Context
 ): String {
 
-```
-return context
-    .getSharedPreferences(
-        ALARM_SOUND_PREFS,
-        Context.MODE_PRIVATE
-    )
-    .getString(
-        ALARM_SOUND_KEY,
-        "notification"
-    ) ?: "notification"
-```
-
+    return context
+        .getSharedPreferences(
+            ALARM_SOUND_PREFS,
+            Context.MODE_PRIVATE
+        )
+        .getString(
+            ALARM_SOUND_KEY,
+            "notification"
+        ) ?: "notification"
 }
 
 fun saveAlarmSoundId(
-context: Context,
-soundId: String
+    context: Context,
+    soundId: String
 ) {
-
-```
-context
-    .getSharedPreferences(
-        ALARM_SOUND_PREFS,
-        Context.MODE_PRIVATE
-    )
-    .edit()
-    .putString(
-        ALARM_SOUND_KEY,
-        soundId
-    )
-    .apply()
-```
-
-}
-
-fun getSelectedAlarmSoundUri(
-context: Context
-): android.net.Uri? {
-
-```
-val selectedId =
-    getSavedAlarmSoundId(context)
-
-val sound =
-    getAlarmSounds()
-        .firstOrNull {
-            it.id == selectedId
-        }
-        ?: getAlarmSounds().first()
-
-return RingtoneManager.getDefaultUri(
-    sound.uriType
-)
-```
-
-}
-
-fun playAlarmSoundForTest(
-context: Context,
-soundId: String
-) {
-
-```
-try {
-
-    val sound =
-        getAlarmSounds()
-            .firstOrNull {
-                it.id == soundId
-            }
-            ?: getAlarmSounds().first()
-
-    val uri =
-        RingtoneManager.getDefaultUri(
-            sound.uriType
-        )
-
-    val ringtone =
-        RingtoneManager.getRingtone(
-            context,
-            uri
-        )
-
-    ringtone?.play()
-
-} catch (_: Exception) {
-}
-```
-
-}
-
-fun getNotificationChannelId(
-soundId: String
-): String {
-
-```
-return when (soundId) {
-
-    "alarm" ->
-        "happy_trading_price_alerts_alarm"
-
-    "ringtone" ->
-        "happy_trading_price_alerts_ringtone"
-
-    else ->
-        "happy_trading_price_alerts_notification"
-}
-```
-
-}
-
-/*
-
-* ---
-* NOTIFICATION
-* ---
-
-*/
-
-private var notificationId = 1000
-
-fun showPriceAlertNotification(
-context: Context,
-alert: PriceAlert,
-currentPrice: Double
-) {
-
-```
-if (
-    Build.VERSION.SDK_INT >=
-    Build.VERSION_CODES.TIRAMISU
-) {
-
-    if (
-        context.checkSelfPermission(
-            Manifest.permission.POST_NOTIFICATIONS
-        ) !=
-        PackageManager.PERMISSION_GRANTED
-    ) {
-        return
-    }
-}
-
-val manager =
-    context.getSystemService(
-        Context.NOTIFICATION_SERVICE
-    ) as NotificationManager
-
-val selectedSoundId =
-    getSavedAlarmSoundId(context)
-
-val channelId =
-    getNotificationChannelId(
-        selectedSoundId
-    )
-
-val title =
-    "🔔 ${alert.symbol} PRICE ALERT"
-
-val message =
-    "Price reached " +
-        formatPrice(currentPrice) +
-        " — target " +
-        formatPrice(alert.targetPrice)
-
-val builder =
-    if (
-        Build.VERSION.SDK_INT >=
-        Build.VERSION_CODES.O
-    ) {
-
-        android.app.Notification.Builder(
-            context,
-            channelId
-        )
-
-    } else {
-
-        android.app.Notification.Builder(
-            context
-        )
-            .setSound(
-                getSelectedAlarmSoundUri(context)
-            )
-    }
-
-builder
-    .setSmallIcon(
-        android.R.drawable.ic_dialog_alert
-    )
-    .setContentTitle(title)
-    .setContentText(message)
-    .setStyle(
-        android.app.Notification.BigTextStyle()
-            .bigText(message)
-    )
-    .setAutoCancel(true)
-    .setPriority(
-        android.app.Notification
-            .PRIORITY_HIGH
-    )
-
-manager.notify(
-    notificationId++,
-    builder.build()
-)
-```
-
-}
-
-/*
-
-* ---
-* PERSISTENT ALERT STORAGE
-* ---
-
-*/
-
-private const val PREFS_NAME =
-"happy_trading_alarm_prefs"
-
-private const val ALERTS_KEY =
-"saved_alerts"
-
-fun saveAlerts(
-context: Context,
-alerts: List<PriceAlert>
-) {
-
-```
-try {
-
-    val jsonArray =
-        JSONArray()
-
-    alerts.forEach { alert ->
-
-        val jsonObject =
-            JSONObject()
-
-        jsonObject.put(
-            "symbol",
-            alert.symbol
-        )
-
-        jsonObject.put(
-            "targetPrice",
-            alert.targetPrice
-        )
-
-        jsonObject.put(
-            "direction",
-            alert.direction
-        )
-
-        jsonObject.put(
-            "enabled",
-            alert.enabled
-        )
-
-        jsonObject.put(
-            "triggered",
-            alert.triggered
-        )
-
-        jsonArray.put(
-            jsonObject
-        )
-    }
 
     context
         .getSharedPreferences(
-            PREFS_NAME,
+            ALARM_SOUND_PREFS,
             Context.MODE_PRIVATE
         )
         .edit()
         .putString(
-            ALERTS_KEY,
-            jsonArray.toString()
+            ALARM_SOUND_KEY,
+            soundId
         )
         .apply()
-
-} catch (_: Exception) {
 }
-```
 
+fun getSelectedAlarmSoundUri(
+    context: Context
+): android.net.Uri? {
+
+    val selectedId =
+        getSavedAlarmSoundId(context)
+
+    val sound =
+        getAlarmSounds()
+            .firstOrNull {
+                it.id == selectedId
+            }
+            ?: getAlarmSounds().first()
+
+    return RingtoneManager.getDefaultUri(
+        sound.uriType
+    )
+}
+
+fun playAlarmSoundForTest(
+    context: Context,
+    soundId: String
+) {
+
+    try {
+
+        val sound =
+            getAlarmSounds()
+                .firstOrNull {
+                    it.id == soundId
+                }
+                ?: getAlarmSounds().first()
+
+        val uri =
+            RingtoneManager.getDefaultUri(
+                sound.uriType
+            )
+
+        val ringtone =
+            RingtoneManager.getRingtone(
+                context,
+                uri
+            )
+
+        ringtone?.play()
+
+    } catch (_: Exception) {
+    }
+}
+
+fun getNotificationChannelId(
+    soundId: String
+): String {
+
+    return when (soundId) {
+
+        "alarm" ->
+            "happy_trading_price_alerts_alarm"
+
+        "ringtone" ->
+            "happy_trading_price_alerts_ringtone"
+
+        else ->
+            "happy_trading_price_alerts_notification"
+    }
+}
+
+private var notificationId = 1000
+
+fun showPriceAlertNotification(
+    context: Context,
+    alert: PriceAlert,
+    currentPrice: Double
+) {
+
+    if (
+        Build.VERSION.SDK_INT >=
+        Build.VERSION_CODES.TIRAMISU
+    ) {
+
+        if (
+            context.checkSelfPermission(
+                Manifest.permission.POST_NOTIFICATIONS
+            ) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+    }
+
+    val manager =
+        context.getSystemService(
+            Context.NOTIFICATION_SERVICE
+        ) as NotificationManager
+
+    val selectedSoundId =
+        getSavedAlarmSoundId(context)
+
+    val channelId =
+        getNotificationChannelId(
+            selectedSoundId
+        )
+
+    val title =
+        "🔔 ${alert.symbol} PRICE ALERT"
+
+    val message =
+        "Price reached " +
+            formatPrice(currentPrice) +
+            " — target " +
+            formatPrice(alert.targetPrice)
+
+    val builder =
+        if (
+            Build.VERSION.SDK_INT >=
+            Build.VERSION_CODES.O
+        ) {
+
+            android.app.Notification.Builder(
+                context,
+                channelId
+            )
+
+        } else {
+
+            android.app.Notification.Builder(
+                context
+            )
+                .setSound(
+                    getSelectedAlarmSoundUri(context)
+                )
+        }
+
+    builder
+        .setSmallIcon(
+            android.R.drawable.ic_dialog_alert
+        )
+        .setContentTitle(title)
+        .setContentText(message)
+        .setStyle(
+            android.app.Notification.BigTextStyle()
+                .bigText(message)
+        )
+        .setAutoCancel(true)
+        .setPriority(
+            android.app.Notification
+                .PRIORITY_HIGH
+        )
+
+    manager.notify(
+        notificationId++,
+        builder.build()
+    )
+}
+
+private const val PREFS_NAME =
+    "happy_trading_alarm_prefs"
+
+private const val ALERTS_KEY =
+    "saved_alerts"
+
+fun saveAlerts(
+    context: Context,
+    alerts: List<PriceAlert>
+) {
+
+    try {
+
+        val jsonArray =
+            JSONArray()
+
+        alerts.forEach { alert ->
+
+            val jsonObject =
+                JSONObject()
+
+            jsonObject.put(
+                "symbol",
+                alert.symbol
+            )
+
+            jsonObject.put(
+                "targetPrice",
+                alert.targetPrice
+            )
+
+            jsonObject.put(
+                "direction",
+                alert.direction
+            )
+
+            jsonObject.put(
+                "enabled",
+                alert.enabled
+            )
+
+            jsonObject.put(
+                "triggered",
+                alert.triggered
+            )
+
+            jsonArray.put(
+                jsonObject
+            )
+        }
+
+        context
+            .getSharedPreferences(
+                PREFS_NAME,
+                Context.MODE_PRIVATE
+            )
+            .edit()
+            .putString(
+                ALERTS_KEY,
+                jsonArray.toString()
+            )
+            .apply()
+
+    } catch (_: Exception) {
+    }
 }
 
 fun loadAlerts(
-context: Context
+    context: Context
 ): List<PriceAlert> {
 
-```
-return try {
+    return try {
 
-    val preferences =
-        context.getSharedPreferences(
-            PREFS_NAME,
-            Context.MODE_PRIVATE
-        )
-
-    val saved =
-        preferences.getString(
-            ALERTS_KEY,
-            null
-        )
-
-    if (saved.isNullOrEmpty()) {
-        return emptyList()
-    }
-
-    val jsonArray =
-        JSONArray(saved)
-
-    val result =
-        mutableListOf<PriceAlert>()
-
-    for (
-        i in 0 until jsonArray.length()
-    ) {
-
-        val obj =
-            jsonArray.getJSONObject(i)
-
-        result.add(
-            PriceAlert(
-                symbol =
-                    obj.getString(
-                        "symbol"
-                    ),
-
-                targetPrice =
-                    obj.getDouble(
-                        "targetPrice"
-                    ),
-
-                direction =
-                    obj.getString(
-                        "direction"
-                    ),
-
-                enabled =
-                    obj.optBoolean(
-                        "enabled",
-                        true
-                    ),
-
-                triggered =
-                    obj.optBoolean(
-                        "triggered",
-                        false
-                    )
+        val preferences =
+            context.getSharedPreferences(
+                PREFS_NAME,
+                Context.MODE_PRIVATE
             )
-        )
+
+        val saved =
+            preferences.getString(
+                ALERTS_KEY,
+                null
+            )
+
+        if (saved.isNullOrEmpty()) {
+            return emptyList()
+        }
+
+        val jsonArray =
+            JSONArray(saved)
+
+        val result =
+            mutableListOf<PriceAlert>()
+
+        for (
+            i in 0 until jsonArray.length()
+        ) {
+
+            val obj =
+                jsonArray.getJSONObject(i)
+
+            result.add(
+                PriceAlert(
+                    symbol =
+                        obj.getString(
+                            "symbol"
+                        ),
+
+                    targetPrice =
+                        obj.getDouble(
+                            "targetPrice"
+                        ),
+
+                    direction =
+                        obj.getString(
+                            "direction"
+                        ),
+
+                    enabled =
+                        obj.optBoolean(
+                            "enabled",
+                            true
+                        ),
+
+                    triggered =
+                        obj.optBoolean(
+                            "triggered",
+                            false
+                        )
+                )
+            )
+        }
+
+        result
+
+    } catch (_: Exception) {
+
+        emptyList()
     }
-
-    result
-
-} catch (_: Exception) {
-
-    emptyList()
 }
-```
-
-}
-
-/*
-
-* ---
-* TABDEAL API
-* ---
-
-*/
 
 fun getTabdealPrice(
-symbol: String
+    symbol: String
 ): PriceResult {
 
-```
-return try {
+    return try {
 
-    val cleanSymbol =
-        symbol
-            .replace(" / ", "")
-            .uppercase()
+        val cleanSymbol =
+            symbol
+                .replace(" / ", "")
+                .uppercase()
 
-    val url =
-        URL(
-            "https://api1.tabdeal.org" +
-                "/r/api/v1/trades" +
-                "?symbol=$cleanSymbol&limit=1"
-        )
+        val url =
+            URL(
+                "https://api1.tabdeal.org" +
+                    "/r/api/v1/trades" +
+                    "?symbol=$cleanSymbol&limit=1"
+            )
 
-    val connection =
-        url.openConnection()
-            as HttpURLConnection
+        val connection =
+            url.openConnection()
+                as HttpURLConnection
 
-    connection.requestMethod =
-        "GET"
+        connection.requestMethod =
+            "GET"
 
-    connection.connectTimeout =
-        8000
+        connection.connectTimeout =
+            8000
 
-    connection.readTimeout =
-        8000
+        connection.readTimeout =
+            8000
 
-    val responseCode =
-        connection.responseCode
+        val responseCode =
+            connection.responseCode
 
-    if (responseCode != 200) {
+        if (responseCode != 200) {
+
+            connection.disconnect()
+
+            return PriceResult(
+                price = null,
+                error =
+                    "HTTP $responseCode"
+            )
+        }
+
+        val response =
+            connection.inputStream
+                .bufferedReader()
+                .use {
+                    it.readText()
+                }
 
         connection.disconnect()
 
-        return PriceResult(
-            price = null,
-            error =
-                "HTTP $responseCode"
-        )
-    }
+        val trades =
+            JSONArray(response)
 
-    val response =
-        connection.inputStream
-            .bufferedReader()
-            .use {
-                it.readText()
-            }
+        if (
+            trades.length() == 0
+        ) {
 
-    connection.disconnect()
+            return PriceResult(
+                price = null,
+                error = "No trades"
+            )
+        }
 
-    val trades =
-        JSONArray(response)
+        val latestTrade =
+            trades.getJSONObject(0)
 
-    if (
-        trades.length() == 0
-    ) {
+        val price =
+            latestTrade
+                .getString("price")
+                .toDoubleOrNull()
 
-        return PriceResult(
-            price = null,
-            error = "No trades"
-        )
-    }
+        if (price == null) {
 
-    val latestTrade =
-        trades.getJSONObject(0)
+            PriceResult(
+                price = null,
+                error =
+                    "Invalid price"
+            )
 
-    val price =
-        latestTrade
-            .getString("price")
-            .toDoubleOrNull()
+        } else {
 
-    if (price == null) {
+            PriceResult(
+                price = price
+            )
+        }
 
-        PriceResult(
-            price = null,
-            error =
-                "Invalid price"
-        )
-
-    } else {
+    } catch (e: Exception) {
 
         PriceResult(
-            price = price
+            price = null,
+            error = e.message
         )
     }
-
-} catch (e: Exception) {
-
-    PriceResult(
-        price = null,
-        error = e.message
-    )
 }
-```
-
-}
-
-/*
-
-* ---
-* PRICE FORMATTER
-* ---
-
-*/
 
 fun formatPrice(
-price: Double
+    price: Double
 ): String {
 
-```
-val formatter =
-    NumberFormat.getNumberInstance(
-        Locale.US
-    )
+    val formatter =
+        NumberFormat.getNumberInstance(
+            Locale.US
+        )
 
-formatter.maximumFractionDigits =
-    8
+    formatter.maximumFractionDigits =
+        8
 
-formatter.minimumFractionDigits =
-    0
+    formatter.minimumFractionDigits =
+        0
 
-return formatter.format(price)
-```
-
+    return formatter.format(price)
 }
