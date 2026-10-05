@@ -1,0 +1,47 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Alarm bell -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,18
+        C40,18 30,29 30,43
+        L30,58
+        C30,65 26,72 21,77
+        L21,82
+        L87,82
+        L87,77
+        C82,72 78,65 78,58
+        L78,43
+        C78,29 68,18 54,18
+        Z" />
+
+    <!-- Bell bottom -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M43,87
+        C45,94 49,97 54,97
+        C59,97 63,94 65,87
+        Z" />
+
+    <!-- Trading chart -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M27,69
+        L38,58
+        L48,64
+        L62,45
+        L73,52
+        L84,38
+        L84,45
+        L75,59
+        L63,52
+        L49,72
+        L38,65
+        L27,77
+        Z" />
+
+</vector>
