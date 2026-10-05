@@ -17,6 +17,8 @@
     <application
         android:allowBackup="true"
         android:label="Happy Trading Alarm"
+        android:icon="@drawable/ic_happy_trading_alarm"
+        android:roundIcon="@drawable/ic_happy_trading_alarm"
         android:supportsRtl="true"
         android:theme="@style/Theme.HappyTradingAlarm">
 
