@@ -246,6 +246,10 @@ fun HappyTradingAlarmScreen(
         mutableStateOf("Connecting...")
     }
 
+    var backgroundMonitoring by remember {
+    mutableStateOf(false)
+    }
+
     val alerts = remember {
         mutableStateListOf<PriceAlert>()
     }
@@ -520,6 +524,101 @@ fun HappyTradingAlarmScreen(
             }
         }
 
+item {
+
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+
+            Text(
+                text = "BACKGROUND MONITORING",
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(
+                modifier = Modifier.height(8.dp)
+            )
+
+            Text(
+                text =
+                    if (backgroundMonitoring)
+                        "● Monitoring Active"
+                    else
+                        "○ Monitoring Off"
+            )
+
+            Spacer(
+                modifier = Modifier.height(10.dp)
+            )
+
+            Button(
+                onClick = {
+
+                    if (!backgroundMonitoring) {
+
+                        val intent =
+                            android.content.Intent(
+                                context,
+                                PriceMonitorService::class.java
+                            ).apply {
+                                action =
+                                    PriceMonitorService
+                                        .ACTION_START
+                            }
+
+                        if (
+                            android.os.Build.VERSION.SDK_INT >=
+                            android.os.Build.VERSION_CODES.O
+                        ) {
+
+                            context.startForegroundService(
+                                intent
+                            )
+
+                        } else {
+
+                            context.startService(
+                                intent
+                            )
+                        }
+
+                        backgroundMonitoring = true
+
+                    } else {
+
+                        val intent =
+                            android.content.Intent(
+                                context,
+                                PriceMonitorService::class.java
+                            ).apply {
+                                action =
+                                    PriceMonitorService
+                                        .ACTION_STOP
+                            }
+
+                        context.startService(intent)
+
+                        backgroundMonitoring = false
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+
+                Text(
+                    if (backgroundMonitoring)
+                        "STOP BACKGROUND MONITORING"
+                    else
+                        "START BACKGROUND MONITORING"
+                )
+            }
+        }
+    }
+}
+        
         item {
 
             Card(
@@ -531,7 +630,6 @@ fun HappyTradingAlarmScreen(
                     modifier =
                         Modifier.padding(16.dp)
                 ) {
-
                     Text(
                         text =
                             "CREATE PRICE ALERT",
