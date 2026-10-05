@@ -1,11 +1,18 @@
 package com.happytradingalarm
 
+import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.PackageManager
+import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -63,8 +70,22 @@ class MainActivity : ComponentActivity() {
 
     private var toneGenerator: ToneGenerator? = null
 
+    private val notificationPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
+
+            if (granted) {
+                // Notification permission granted.
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        createNotificationChannel()
+
+        requestNotificationPermission()
 
         toneGenerator = ToneGenerator(
             AudioManager.STREAM_ALARM,
@@ -75,15 +96,72 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 HappyTradingAlarmScreen(
                     context = this,
-                    onAlarmTriggered = {
+                    onAlarmTriggered = { alert, currentPrice ->
                         playAlarmSound()
+
+                        showPriceAlertNotification(
+                            context = this,
+                            alert = alert,
+                            currentPrice = currentPrice
+                        )
                     }
                 )
             }
         }
     }
 
+    private fun requestNotificationPermission() {
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+
+            if (
+                checkSelfPermission(
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+
+                notificationPermissionLauncher.launch(
+                    Manifest.permission.POST_NOTIFICATIONS
+                )
+            }
+        }
+    }
+
+    private fun createNotificationChannel() {
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+
+            val channel = NotificationChannel(
+                NOTIFICATION_CHANNEL_ID,
+                "Price Alerts",
+                NotificationManager.IMPORTANCE_HIGH
+            )
+
+            channel.description =
+                "Happy Trading Alarm price alerts"
+
+            channel.enableVibration(true)
+
+            channel.setSound(
+                android.provider.Settings.System.DEFAULT_NOTIFICATION_URI,
+                AudioAttributes.Builder()
+                    .setUsage(
+                        AudioAttributes.USAGE_NOTIFICATION
+                    )
+                    .build()
+            )
+
+            val manager =
+                getSystemService(
+                    NotificationManager::class.java
+                )
+
+            manager.createNotificationChannel(channel)
+        }
+    }
+
     private fun playAlarmSound() {
+
         toneGenerator?.startTone(
             ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD,
             1200
@@ -91,8 +169,10 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+
         toneGenerator?.release()
         toneGenerator = null
+
         super.onDestroy()
     }
 }
@@ -100,7 +180,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun HappyTradingAlarmScreen(
     context: Context,
-    onAlarmTriggered: () -> Unit
+    onAlarmTriggered: (
+        PriceAlert,
+        Double
+    ) -> Unit
 ) {
 
     var selectedCoin by remember {
@@ -140,34 +223,30 @@ fun HappyTradingAlarmScreen(
         "DOGE / USDT"
     )
 
-    /*
-     * Load saved alerts once when the screen starts.
-     */
     LaunchedEffect(Unit) {
 
-        val savedAlerts = loadAlerts(context)
+        val savedAlerts =
+            loadAlerts(context)
 
         alerts.clear()
         alerts.addAll(savedAlerts)
     }
 
-    /*
-     * Live price checker.
-     *
-     * Refresh rate: 1 second
-     */
     LaunchedEffect(selectedCoin) {
 
         while (true) {
 
-            val result = withContext(Dispatchers.IO) {
-                getTabdealPrice(selectedCoin)
-            }
+            val result =
+                withContext(Dispatchers.IO) {
+                    getTabdealPrice(selectedCoin)
+                }
 
             if (result.price != null) {
 
                 currentPrice = result.price
-                connectionStatus = "● Connected"
+
+                connectionStatus =
+                    "● Connected"
 
                 alerts.forEachIndexed { index, alert ->
 
@@ -179,9 +258,14 @@ fun HappyTradingAlarmScreen(
 
                         val reached =
                             if (alert.direction == "Above") {
-                                result.price >= alert.targetPrice
+
+                                result.price >=
+                                        alert.targetPrice
+
                             } else {
-                                result.price <= alert.targetPrice
+
+                                result.price <=
+                                        alert.targetPrice
                             }
 
                         if (reached) {
@@ -192,21 +276,26 @@ fun HappyTradingAlarmScreen(
                                     enabled = false
                                 )
 
-                            alerts[index] = triggeredAlert
+                            alerts[index] =
+                                triggeredAlert
 
                             saveAlerts(
                                 context,
                                 alerts
                             )
 
-                            onAlarmTriggered()
+                            onAlarmTriggered(
+                                triggeredAlert,
+                                result.price
+                            )
                         }
                     }
                 }
 
             } else {
 
-                connectionStatus = "● Connection failed"
+                connectionStatus =
+                    "● Connection failed"
             }
 
             delay(1000)
@@ -217,54 +306,74 @@ fun HappyTradingAlarmScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement =
+            Arrangement.spacedBy(12.dp)
     ) {
 
         item {
 
             Text(
-                text = "HAPPY TRADING ALARM",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
+                text =
+                    "HAPPY TRADING ALARM",
+
+                style =
+                    MaterialTheme.typography
+                        .headlineSmall,
+
+                fontWeight =
+                    FontWeight.Bold
             )
 
             Text(
-                text = "Real-time Crypto Price Alert",
-                style = MaterialTheme.typography.bodyMedium
+                text =
+                    "Real-time Crypto Price Alert",
+
+                style =
+                    MaterialTheme.typography
+                        .bodyMedium
             )
         }
 
         item {
 
             Card(
-                modifier = Modifier.fillMaxWidth()
+                modifier =
+                    Modifier.fillMaxWidth()
             ) {
 
                 Column(
-                    modifier = Modifier.padding(16.dp)
+                    modifier =
+                        Modifier.padding(16.dp)
                 ) {
 
                     Text(
-                        text = "Cryptocurrency",
-                        fontWeight = FontWeight.Bold
+                        text =
+                            "Cryptocurrency",
+
+                        fontWeight =
+                            FontWeight.Bold
                     )
 
                     Spacer(
-                        modifier = Modifier.height(8.dp)
+                        modifier =
+                            Modifier.height(8.dp)
                     )
 
                     OutlinedButton(
                         onClick = {
                             menuExpanded = true
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier =
+                            Modifier.fillMaxWidth()
                     ) {
 
                         Text(selectedCoin)
                     }
 
                     DropdownMenu(
-                        expanded = menuExpanded,
+                        expanded =
+                            menuExpanded,
+
                         onDismissRequest = {
                             menuExpanded = false
                         }
@@ -276,11 +385,18 @@ fun HappyTradingAlarmScreen(
                                 text = {
                                     Text(coin)
                                 },
+
                                 onClick = {
 
-                                    selectedCoin = coin
-                                    menuExpanded = false
-                                    currentPrice = null
+                                    selectedCoin =
+                                        coin
+
+                                    menuExpanded =
+                                        false
+
+                                    currentPrice =
+                                        null
+
                                     connectionStatus =
                                         "Connecting..."
                                 }
@@ -294,52 +410,75 @@ fun HappyTradingAlarmScreen(
         item {
 
             Card(
-                modifier = Modifier.fillMaxWidth()
+                modifier =
+                    Modifier.fillMaxWidth()
             ) {
 
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+
                     horizontalAlignment =
                         Alignment.CenterHorizontally
                 ) {
 
                     Text(
-                        text = "CURRENT PRICE",
-                        fontWeight = FontWeight.Bold
+                        text =
+                            "CURRENT PRICE",
+
+                        fontWeight =
+                            FontWeight.Bold
                     )
 
                     Spacer(
-                        modifier = Modifier.height(8.dp)
+                        modifier =
+                            Modifier.height(8.dp)
                     )
 
                     Text(
                         text =
-                            if (currentPrice != null) {
-                                formatPrice(currentPrice!!)
+                            if (
+                                currentPrice != null
+                            ) {
+
+                                formatPrice(
+                                    currentPrice!!
+                                )
+
                             } else {
+
                                 "--"
                             },
+
                         style =
-                            MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold
+                            MaterialTheme.typography
+                                .headlineMedium,
+
+                        fontWeight =
+                            FontWeight.Bold
                     )
 
                     Spacer(
-                        modifier = Modifier.height(6.dp)
+                        modifier =
+                            Modifier.height(6.dp)
                     )
 
                     Text(connectionStatus)
 
                     Spacer(
-                        modifier = Modifier.height(4.dp)
+                        modifier =
+                            Modifier.height(4.dp)
                     )
 
                     Text(
-                        text = "Auto refresh: 1 second",
+                        text =
+                            "Auto refresh: 1 second",
+
                         style =
-                            MaterialTheme.typography.bodySmall
+                            MaterialTheme.typography
+                                .bodySmall
                     )
                 }
             }
@@ -348,77 +487,114 @@ fun HappyTradingAlarmScreen(
         item {
 
             Card(
-                modifier = Modifier.fillMaxWidth()
+                modifier =
+                    Modifier.fillMaxWidth()
             ) {
 
                 Column(
-                    modifier = Modifier.padding(16.dp)
+                    modifier =
+                        Modifier.padding(16.dp)
                 ) {
 
                     Text(
-                        text = "CREATE PRICE ALERT",
-                        fontWeight = FontWeight.Bold
+                        text =
+                            "CREATE PRICE ALERT",
+
+                        fontWeight =
+                            FontWeight.Bold
                     )
 
                     Spacer(
-                        modifier = Modifier.height(10.dp)
+                        modifier =
+                            Modifier.height(10.dp)
                     )
 
                     OutlinedTextField(
-                        value = targetPriceText,
+                        value =
+                            targetPriceText,
+
                         onValueChange = {
-                            targetPriceText = it
+                            targetPriceText =
+                                it
                         },
-                        modifier = Modifier.fillMaxWidth(),
+
+                        modifier =
+                            Modifier.fillMaxWidth(),
+
                         label = {
                             Text("Target Price")
                         },
+
                         singleLine = true
                     )
 
                     Spacer(
-                        modifier = Modifier.height(10.dp)
+                        modifier =
+                            Modifier.height(10.dp)
                     )
 
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier =
+                            Modifier.fillMaxWidth(),
+
                         horizontalArrangement =
                             Arrangement.spacedBy(8.dp)
                     ) {
 
                         OutlinedButton(
                             onClick = {
-                                direction = "Above"
+                                direction =
+                                    "Above"
                             },
-                            modifier = Modifier.weight(1f)
+
+                            modifier =
+                                Modifier.weight(1f)
                         ) {
 
                             Text(
-                                if (direction == "Above")
-                                    "✓ Above"
-                                else
+                                if (
+                                    direction ==
                                     "Above"
+                                ) {
+
+                                    "✓ Above"
+
+                                } else {
+
+                                    "Above"
+                                }
                             )
                         }
 
                         OutlinedButton(
                             onClick = {
-                                direction = "Below"
+                                direction =
+                                    "Below"
                             },
-                            modifier = Modifier.weight(1f)
+
+                            modifier =
+                                Modifier.weight(1f)
                         ) {
 
                             Text(
-                                if (direction == "Below")
-                                    "✓ Below"
-                                else
+                                if (
+                                    direction ==
                                     "Below"
+                                ) {
+
+                                    "✓ Below"
+
+                                } else {
+
+                                    "Below"
+                                }
                             )
                         }
                     }
 
                     Spacer(
-                        modifier = Modifier.height(10.dp)
+                        modifier =
+                            Modifier.height(10.dp)
                     )
 
                     Button(
@@ -437,25 +613,37 @@ fun HappyTradingAlarmScreen(
 
                                 val newAlert =
                                     PriceAlert(
-                                        symbol = selectedCoin,
-                                        targetPrice = price,
-                                        direction = direction
+                                        symbol =
+                                            selectedCoin,
+
+                                        targetPrice =
+                                            price,
+
+                                        direction =
+                                            direction
                                     )
 
-                                alerts.add(newAlert)
+                                alerts.add(
+                                    newAlert
+                                )
 
                                 saveAlerts(
                                     context,
                                     alerts
                                 )
 
-                                targetPriceText = ""
+                                targetPriceText =
+                                    ""
                             }
                         },
-                        modifier = Modifier.fillMaxWidth()
+
+                        modifier =
+                            Modifier.fillMaxWidth()
                     ) {
 
-                        Text("🔔 CREATE ALERT")
+                        Text(
+                            "🔔 CREATE ALERT"
+                        )
                     }
                 }
             }
@@ -464,9 +652,15 @@ fun HappyTradingAlarmScreen(
         item {
 
             Text(
-                text = "ACTIVE ALERTS",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                text =
+                    "ACTIVE ALERTS",
+
+                style =
+                    MaterialTheme.typography
+                        .titleLarge,
+
+                fontWeight =
+                    FontWeight.Bold
             )
         }
 
@@ -475,41 +669,55 @@ fun HappyTradingAlarmScreen(
             item {
 
                 Card(
-                    modifier = Modifier.fillMaxWidth()
+                    modifier =
+                        Modifier.fillMaxWidth()
                 ) {
 
                     Text(
-                        text = "No active alerts",
-                        modifier = Modifier.padding(16.dp)
+                        text =
+                            "No active alerts",
+
+                        modifier =
+                            Modifier.padding(16.dp)
                     )
                 }
             }
 
         } else {
 
-            itemsIndexed(alerts) { index, alert ->
+            itemsIndexed(alerts) {
+                    index,
+                    alert ->
 
                 Card(
-                    modifier = Modifier.fillMaxWidth()
+                    modifier =
+                        Modifier.fillMaxWidth()
                 ) {
 
                     Column(
-                        modifier = Modifier.padding(16.dp)
+                        modifier =
+                            Modifier.padding(16.dp)
                     ) {
 
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier =
+                                Modifier.fillMaxWidth(),
+
                             verticalAlignment =
                                 Alignment.CenterVertically
                         ) {
 
                             Column(
-                                modifier = Modifier.weight(1f)
+                                modifier =
+                                    Modifier.weight(1f)
                             ) {
 
                                 Text(
-                                    text = alert.symbol,
-                                    fontWeight = FontWeight.Bold
+                                    text =
+                                        alert.symbol,
+
+                                    fontWeight =
+                                        FontWeight.Bold
                                 )
 
                                 Text(
@@ -520,36 +728,49 @@ fun HappyTradingAlarmScreen(
                                         )
                                 )
 
-                                if (alert.triggered) {
+                                if (
+                                    alert.triggered
+                                ) {
 
                                     Text(
-                                        text = "🔔 TRIGGERED",
+                                        text =
+                                            "🔔 TRIGGERED",
+
                                         fontWeight =
                                             FontWeight.Bold
                                     )
 
-                                } else if (alert.enabled) {
+                                } else if (
+                                    alert.enabled
+                                ) {
 
                                     Text(
-                                        text = "Waiting..."
+                                        text =
+                                            "Waiting..."
                                     )
 
                                 } else {
 
                                     Text(
-                                        text = "Disabled"
+                                        text =
+                                            "Disabled"
                                     )
                                 }
                             }
 
                             Switch(
-                                checked = alert.enabled,
+                                checked =
+                                    alert.enabled,
+
                                 onCheckedChange = {
 
                                     val updatedAlert =
                                         alert.copy(
-                                            enabled = it,
-                                            triggered = false
+                                            enabled =
+                                                it,
+
+                                            triggered =
+                                                false
                                         )
 
                                     alerts[index] =
@@ -564,20 +785,25 @@ fun HappyTradingAlarmScreen(
                         }
 
                         Spacer(
-                            modifier = Modifier.height(8.dp)
+                            modifier =
+                                Modifier.height(8.dp)
                         )
 
                         OutlinedButton(
                             onClick = {
 
-                                alerts.removeAt(index)
+                                alerts.removeAt(
+                                    index
+                                )
 
                                 saveAlerts(
                                     context,
                                     alerts
                                 )
                             },
-                            modifier = Modifier.fillMaxWidth()
+
+                            modifier =
+                                Modifier.fillMaxWidth()
                         ) {
 
                             Text("DELETE")
@@ -587,6 +813,96 @@ fun HappyTradingAlarmScreen(
             }
         }
     }
+}
+
+/*
+ * ---------------------------------------------------------
+ * NOTIFICATION
+ * ---------------------------------------------------------
+ */
+
+const val NOTIFICATION_CHANNEL_ID =
+    "happy_trading_price_alerts"
+
+private var notificationId = 1000
+
+fun showPriceAlertNotification(
+    context: Context,
+    alert: PriceAlert,
+    currentPrice: Double
+) {
+
+    if (
+        Build.VERSION.SDK_INT >=
+        Build.VERSION_CODES.TIRAMISU
+    ) {
+
+        if (
+            context.checkSelfPermission(
+                Manifest.permission.POST_NOTIFICATIONS
+            ) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+    }
+
+    val manager =
+        context.getSystemService(
+            Context.NOTIFICATION_SERVICE
+        ) as NotificationManager
+
+    val title =
+        "🔔 ${alert.symbol} PRICE ALERT"
+
+    val message =
+        if (alert.direction == "Above") {
+
+            "Price reached ${formatPrice(currentPrice)} — target ${formatPrice(alert.targetPrice)}"
+
+        } else {
+
+            "Price reached ${formatPrice(currentPrice)} — target ${formatPrice(alert.targetPrice)}"
+        }
+
+    val builder =
+        if (
+            Build.VERSION.SDK_INT >=
+            Build.VERSION_CODES.O
+        ) {
+
+            android.app.Notification.Builder(
+                context,
+                NOTIFICATION_CHANNEL_ID
+            )
+
+        } else {
+
+            android.app.Notification.Builder(
+                context
+            )
+        }
+
+    builder
+        .setSmallIcon(
+            android.R.drawable.ic_dialog_alert
+        )
+        .setContentTitle(title)
+        .setContentText(message)
+        .setStyle(
+            android.app.Notification.BigTextStyle()
+                .bigText(message)
+        )
+        .setAutoCancel(true)
+        .setPriority(
+            android.app.Notification
+                .PRIORITY_HIGH
+        )
+
+    manager.notify(
+        notificationId++,
+        builder.build()
+    )
 }
 
 /*
@@ -608,11 +924,13 @@ fun saveAlerts(
 
     try {
 
-        val jsonArray = JSONArray()
+        val jsonArray =
+            JSONArray()
 
         alerts.forEach { alert ->
 
-            val jsonObject = JSONObject()
+            val jsonObject =
+                JSONObject()
 
             jsonObject.put(
                 "symbol",
@@ -639,7 +957,9 @@ fun saveAlerts(
                 alert.triggered
             )
 
-            jsonArray.put(jsonObject)
+            jsonArray.put(
+                jsonObject
+            )
         }
 
         context
@@ -655,7 +975,6 @@ fun saveAlerts(
             .apply()
 
     } catch (_: Exception) {
-        // Ignore storage errors for now.
     }
 }
 
@@ -687,7 +1006,9 @@ fun loadAlerts(
         val result =
             mutableListOf<PriceAlert>()
 
-        for (i in 0 until jsonArray.length()) {
+        for (
+            i in 0 until jsonArray.length()
+        ) {
 
             val obj =
                 jsonArray.getJSONObject(i)
@@ -695,13 +1016,19 @@ fun loadAlerts(
             result.add(
                 PriceAlert(
                     symbol =
-                        obj.getString("symbol"),
+                        obj.getString(
+                            "symbol"
+                        ),
 
                     targetPrice =
-                        obj.getDouble("targetPrice"),
+                        obj.getDouble(
+                            "targetPrice"
+                        ),
 
                     direction =
-                        obj.getString("direction"),
+                        obj.getString(
+                            "direction"
+                        ),
 
                     enabled =
                         obj.optBoolean(
@@ -728,7 +1055,7 @@ fun loadAlerts(
 
 /*
  * ---------------------------------------------------------
- * TABDEAL PRICE API
+ * TABDEAL API
  * ---------------------------------------------------------
  */
 
@@ -754,9 +1081,14 @@ fun getTabdealPrice(
             url.openConnection()
                     as HttpURLConnection
 
-        connection.requestMethod = "GET"
-        connection.connectTimeout = 8000
-        connection.readTimeout = 8000
+        connection.requestMethod =
+            "GET"
+
+        connection.connectTimeout =
+            8000
+
+        connection.readTimeout =
+            8000
 
         val responseCode =
             connection.responseCode
@@ -767,7 +1099,8 @@ fun getTabdealPrice(
 
             return PriceResult(
                 price = null,
-                error = "HTTP $responseCode"
+                error =
+                    "HTTP $responseCode"
             )
         }
 
@@ -783,7 +1116,9 @@ fun getTabdealPrice(
         val trades =
             JSONArray(response)
 
-        if (trades.length() == 0) {
+        if (
+            trades.length() == 0
+        ) {
 
             return PriceResult(
                 price = null,
@@ -803,7 +1138,8 @@ fun getTabdealPrice(
 
             PriceResult(
                 price = null,
-                error = "Invalid price"
+                error =
+                    "Invalid price"
             )
 
         } else {
@@ -837,8 +1173,11 @@ fun formatPrice(
             Locale.US
         )
 
-    formatter.maximumFractionDigits = 8
-    formatter.minimumFractionDigits = 0
+    formatter.maximumFractionDigits =
+        8
+
+    formatter.minimumFractionDigits =
+        0
 
     return formatter.format(price)
 }
