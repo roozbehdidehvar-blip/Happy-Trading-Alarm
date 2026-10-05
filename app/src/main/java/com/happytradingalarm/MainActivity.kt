@@ -2493,12 +2493,12 @@ fun showPriceAlertNotification(
         /*
          * Custom Happy Trading Alarm icon.
          */
-        .setSmallIcon(
-            R.drawable.ic_happy_trading_alarm
+       .setSmallIcon(
+        com.happytradingalarm.R.drawable.ic_happy_trading_alarm
         )
-        .setContentTitle(title)
-        .setContentText(message)
-        .setStyle(
+         .setContentTitle(title)
+         .setContentText(message)
+         .setStyle(
             android.app.Notification.BigTextStyle()
                 .bigText(message)
         )
