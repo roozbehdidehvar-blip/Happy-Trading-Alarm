@@ -22,16 +22,21 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
+import org.json.JSONArray
+import java.net.HttpURLConnection
+import java.net.URL
 
 data class PriceAlert(
     val symbol: String,
@@ -61,6 +66,11 @@ fun HappyTradingAlarmScreen() {
     var targetPrice by remember { mutableStateOf("") }
     var direction by remember { mutableStateOf("Above") }
 
+    var currentPrice by remember { mutableStateOf("--") }
+    var connectionStatus by remember {
+        mutableStateOf("Connecting to Tabdeal...")
+    }
+
     val alerts = remember {
         mutableStateListOf<PriceAlert>()
     }
@@ -73,6 +83,26 @@ fun HappyTradingAlarmScreen() {
         "BNB / USDT",
         "DOGE / USDT"
     )
+
+    LaunchedEffect(selectedCoin) {
+
+        while (true) {
+
+            val result = getTabdealPrice(selectedCoin)
+
+            if (result != null) {
+
+                currentPrice = result
+                connectionStatus = "● Connected to Tabdeal"
+
+            } else {
+
+                connectionStatus = "● Connection failed"
+            }
+
+            delay(5000)
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -134,8 +164,12 @@ fun HappyTradingAlarmScreen() {
                                     Text(coin)
                                 },
                                 onClick = {
+
                                     selectedCoin = coin
                                     menuExpanded = false
+                                    currentPrice = "--"
+                                    connectionStatus =
+                                        "Connecting to Tabdeal..."
                                 }
                             )
                         }
@@ -163,13 +197,22 @@ fun HappyTradingAlarmScreen() {
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "$0.00",
+                        text = currentPrice,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold
                     )
 
+                    Spacer(modifier = Modifier.height(4.dp))
+
                     Text(
-                        text = "Waiting for live price...",
+                        text = connectionStatus,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "Auto refresh: 5 seconds",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
@@ -252,6 +295,7 @@ fun HappyTradingAlarmScreen() {
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
+
                         Text("🔔  CREATE ALERT")
                     }
                 }
@@ -324,5 +368,53 @@ fun HappyTradingAlarmScreen() {
                 }
             }
         }
+    }
+}
+
+fun getTabdealPrice(symbol: String): String? {
+
+    return try {
+
+        val cleanSymbol = symbol
+            .replace(" / ", "")
+            .uppercase()
+
+        val url = URL(
+            "https://api1.tabdeal.org/r/api/v1/trades" +
+                    "?symbol=$cleanSymbol&limit=1"
+        )
+
+        val connection =
+            url.openConnection() as HttpURLConnection
+
+        connection.requestMethod = "GET"
+        connection.connectTimeout = 8000
+        connection.readTimeout = 8000
+
+        if (connection.responseCode != 200) {
+            connection.disconnect()
+            return null
+        }
+
+        val response =
+            connection.inputStream
+                .bufferedReader()
+                .use { it.readText() }
+
+        connection.disconnect()
+
+        val array = JSONArray(response)
+
+        if (array.length() == 0) {
+            return null
+        }
+
+        val trade = array.getJSONObject(0)
+
+        trade.getString("price")
+
+    } catch (e: Exception) {
+
+        null
     }
 }
