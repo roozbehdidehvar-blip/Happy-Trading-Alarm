@@ -1,5 +1,6 @@
 package com.happytradingalarm
 
+import android.content.Context
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.Bundle
@@ -29,8 +30,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +40,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.text.NumberFormat
@@ -72,6 +74,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 HappyTradingAlarmScreen(
+                    context = this,
                     onAlarmTriggered = {
                         playAlarmSound()
                     }
@@ -96,6 +99,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun HappyTradingAlarmScreen(
+    context: Context,
     onAlarmTriggered: () -> Unit
 ) {
 
@@ -137,14 +141,21 @@ fun HappyTradingAlarmScreen(
     )
 
     /*
-     * Price engine
-     *
-     * Every 5 seconds:
-     * 1. Get real price from Tabdeal
-     * 2. Update screen
-     * 3. Check active alerts
+     * Load saved alerts once when the screen starts.
      */
+    LaunchedEffect(Unit) {
 
+        val savedAlerts = loadAlerts(context)
+
+        alerts.clear()
+        alerts.addAll(savedAlerts)
+    }
+
+    /*
+     * Live price checker.
+     *
+     * Refresh rate: 1 second
+     */
     LaunchedEffect(selectedCoin) {
 
         while (true) {
@@ -158,10 +169,6 @@ fun HappyTradingAlarmScreen(
                 currentPrice = result.price
                 connectionStatus = "● Connected"
 
-                /*
-                 * Check alerts belonging to current coin.
-                 */
-
                 alerts.forEachIndexed { index, alert ->
 
                     if (
@@ -172,21 +179,25 @@ fun HappyTradingAlarmScreen(
 
                         val reached =
                             if (alert.direction == "Above") {
-
                                 result.price >= alert.targetPrice
-
                             } else {
-
                                 result.price <= alert.targetPrice
                             }
 
                         if (reached) {
 
-                            alerts[index] =
+                            val triggeredAlert =
                                 alert.copy(
                                     triggered = true,
                                     enabled = false
                                 )
+
+                            alerts[index] = triggeredAlert
+
+                            saveAlerts(
+                                context,
+                                alerts
+                            )
 
                             onAlarmTriggered()
                         }
@@ -195,11 +206,10 @@ fun HappyTradingAlarmScreen(
 
             } else {
 
-                connectionStatus =
-                    "● Connection failed"
+                connectionStatus = "● Connection failed"
             }
 
-            delay(5000)
+            delay(1000)
         }
     }
 
@@ -327,7 +337,7 @@ fun HappyTradingAlarmScreen(
                     )
 
                     Text(
-                        text = "Auto refresh: 5 seconds",
+                        text = "Auto refresh: 1 second",
                         style =
                             MaterialTheme.typography.bodySmall
                     )
@@ -425,12 +435,18 @@ fun HappyTradingAlarmScreen(
                                 price > 0
                             ) {
 
-                                alerts.add(
+                                val newAlert =
                                     PriceAlert(
                                         symbol = selectedCoin,
                                         targetPrice = price,
                                         direction = direction
                                     )
+
+                                alerts.add(newAlert)
+
+                                saveAlerts(
+                                    context,
+                                    alerts
                                 )
 
                                 targetPriceText = ""
@@ -512,10 +528,16 @@ fun HappyTradingAlarmScreen(
                                             FontWeight.Bold
                                     )
 
-                                } else {
+                                } else if (alert.enabled) {
 
                                     Text(
                                         text = "Waiting..."
+                                    )
+
+                                } else {
+
+                                    Text(
+                                        text = "Disabled"
                                     )
                                 }
                             }
@@ -524,11 +546,19 @@ fun HappyTradingAlarmScreen(
                                 checked = alert.enabled,
                                 onCheckedChange = {
 
-                                    alerts[index] =
+                                    val updatedAlert =
                                         alert.copy(
                                             enabled = it,
                                             triggered = false
                                         )
+
+                                    alerts[index] =
+                                        updatedAlert
+
+                                    saveAlerts(
+                                        context,
+                                        alerts
+                                    )
                                 }
                             )
                         }
@@ -539,7 +569,13 @@ fun HappyTradingAlarmScreen(
 
                         OutlinedButton(
                             onClick = {
+
                                 alerts.removeAt(index)
+
+                                saveAlerts(
+                                    context,
+                                    alerts
+                                )
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -552,6 +588,149 @@ fun HappyTradingAlarmScreen(
         }
     }
 }
+
+/*
+ * ---------------------------------------------------------
+ * PERSISTENT ALERT STORAGE
+ * ---------------------------------------------------------
+ */
+
+private const val PREFS_NAME =
+    "happy_trading_alarm_prefs"
+
+private const val ALERTS_KEY =
+    "saved_alerts"
+
+fun saveAlerts(
+    context: Context,
+    alerts: List<PriceAlert>
+) {
+
+    try {
+
+        val jsonArray = JSONArray()
+
+        alerts.forEach { alert ->
+
+            val jsonObject = JSONObject()
+
+            jsonObject.put(
+                "symbol",
+                alert.symbol
+            )
+
+            jsonObject.put(
+                "targetPrice",
+                alert.targetPrice
+            )
+
+            jsonObject.put(
+                "direction",
+                alert.direction
+            )
+
+            jsonObject.put(
+                "enabled",
+                alert.enabled
+            )
+
+            jsonObject.put(
+                "triggered",
+                alert.triggered
+            )
+
+            jsonArray.put(jsonObject)
+        }
+
+        context
+            .getSharedPreferences(
+                PREFS_NAME,
+                Context.MODE_PRIVATE
+            )
+            .edit()
+            .putString(
+                ALERTS_KEY,
+                jsonArray.toString()
+            )
+            .apply()
+
+    } catch (_: Exception) {
+        // Ignore storage errors for now.
+    }
+}
+
+fun loadAlerts(
+    context: Context
+): List<PriceAlert> {
+
+    return try {
+
+        val preferences =
+            context.getSharedPreferences(
+                PREFS_NAME,
+                Context.MODE_PRIVATE
+            )
+
+        val saved =
+            preferences.getString(
+                ALERTS_KEY,
+                null
+            )
+
+        if (saved.isNullOrEmpty()) {
+            return emptyList()
+        }
+
+        val jsonArray =
+            JSONArray(saved)
+
+        val result =
+            mutableListOf<PriceAlert>()
+
+        for (i in 0 until jsonArray.length()) {
+
+            val obj =
+                jsonArray.getJSONObject(i)
+
+            result.add(
+                PriceAlert(
+                    symbol =
+                        obj.getString("symbol"),
+
+                    targetPrice =
+                        obj.getDouble("targetPrice"),
+
+                    direction =
+                        obj.getString("direction"),
+
+                    enabled =
+                        obj.optBoolean(
+                            "enabled",
+                            true
+                        ),
+
+                    triggered =
+                        obj.optBoolean(
+                            "triggered",
+                            false
+                        )
+                )
+            )
+        }
+
+        result
+
+    } catch (_: Exception) {
+
+        emptyList()
+    }
+}
+
+/*
+ * ---------------------------------------------------------
+ * TABDEAL PRICE API
+ * ---------------------------------------------------------
+ */
 
 fun getTabdealPrice(
     symbol: String
@@ -642,6 +821,12 @@ fun getTabdealPrice(
         )
     }
 }
+
+/*
+ * ---------------------------------------------------------
+ * PRICE FORMATTER
+ * ---------------------------------------------------------
+ */
 
 fun formatPrice(
     price: Double
