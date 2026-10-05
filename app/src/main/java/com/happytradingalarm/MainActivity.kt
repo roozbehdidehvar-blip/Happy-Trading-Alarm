@@ -69,7 +69,43 @@ data class PriceResult(
 class MainActivity : ComponentActivity() {
 
     private var toneGenerator: ToneGenerator? = null
+private fun startBackgroundMonitoring() {
 
+    val intent =
+        android.content.Intent(
+            this,
+            PriceMonitorService::class.java
+        ).apply {
+            action =
+                PriceMonitorService.ACTION_START
+        }
+
+    if (
+        android.os.Build.VERSION.SDK_INT >=
+        android.os.Build.VERSION_CODES.O
+    ) {
+
+        startForegroundService(intent)
+
+    } else {
+
+        startService(intent)
+    }
+}
+
+private fun stopBackgroundMonitoring() {
+
+    val intent =
+        android.content.Intent(
+            this,
+            PriceMonitorService::class.java
+        ).apply {
+            action =
+                PriceMonitorService.ACTION_STOP
+        }
+
+    startService(intent)
+}
     private val notificationPermissionLauncher =
         registerForActivityResult(
             ActivityResultContracts.RequestPermission()
