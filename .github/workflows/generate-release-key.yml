@@ -1,0 +1,131 @@
+````yaml
+name: Generate Release Signing Key
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate-key:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set Up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Generate Signing Key
+        env:
+          STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+        run: |
+          set -e
+
+          if [ -z "$STORE_PASSWORD" ] || \
+             [ -z "$KEY_PASSWORD" ] || \
+             [ -z "$KEY_ALIAS" ]; then
+            echo "::error::Signing secrets are missing."
+            exit 1
+          fi
+
+          keytool -genkeypair \
+            -v \
+            -keystore release-key.jks \
+            -storetype JKS \
+            -storepass "$STORE_PASSWORD" \
+            -keypass "$KEY_PASSWORD" \
+            -alias "$KEY_ALIAS" \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Happy Trading Alarm, OU=Development, O=Happy Trading Alarm, C=US"
+
+          keytool -list \
+            -keystore release-key.jks \
+            -storepass "$STORE_PASSWORD"
+
+      - name: Upload Signing Key
+        uses: actions/upload-artifact@v4
+        with:
+          name: temporary-release-signing-key
+          path: release-key.jks
+          retention-days: 1
+          if-no-files-found: error
+
+5. روی **Commit changes** کلیک کن و ذخیره را تأیید کن.
+
+## مرحله ۲: اجرای Workflow
+
+حالا:
+
+1. وارد زبانه **Actions** مخزن شو.
+2. در فهرست سمت چپ، **Generate Release Signing Key** را انتخاب کن.
+3. روی **Run workflow** کلیک کن.
+4. دوباره دکمه سبز **Run workflow** را بزن.
+5. منتظر بمان تا اجرا تمام شود و علامت سبز ظاهر شود.
+
+این فرایند با استفاده از سه Secret که قبلاً ساخته‌ای، یک فایل به نام `release-key.jks` ایجاد می‌کند.
+
+**هشدار:** اگر Workflow موفق شد، آن را دوباره اجرا نکن؛ اجرای مجدد ممکن است کلید جدیدی تولید کند.
+
+## مرحله ۳: دریافت فایل کلید
+
+پس از موفقیت اجرا:
+
+1. روی اجرای موفق کلیک کن.
+2. به قسمت **Artifacts** در پایین صفحه برو.
+3. فایل `temporary-release-signing-key` را دانلود کن.
+4. فایل ZIP دانلودشده را در کامپیوتر از حالت فشرده خارج کن.
+
+باید فایل زیر را ببینی:
+
+`release-key.jks`
+
+این فایل محرمانه است؛ آن را در مخزن عمومی GitHub قرار نده و برای کسی ارسال نکن.
+
+## مرحله ۴: تبدیل کلید به Secret
+
+برای اینکه GitHub بتواند در ساخت‌های بعدی از کلید استفاده کند، باید محتوای آن را به Base64 تبدیل کنیم.
+
+در ویندوز، وارد پوشه‌ای شو که فایل `release-key.jks` را در آن استخراج کرده‌ای. در همان پوشه، نوار آدرس File Explorer را انتخاب کن، عبارت `powershell` را تایپ کن و Enter بزن.
+
+سپس این دستور را اجرا کن:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("$PWD\release-key.jks")) | Set-Clipboard
+````
+
+این دستور محتوای تبدیل‌شده را در Clipboard کپی می‌کند؛ نیازی نیست آن را در صفحه عمومی یا چت وارد کنی.
+
+حالا وارد بخش زیر در GitHub شو:
+
+[تنظیمات Secrets مخزن](https://github.com/roozbehdidehvar-blip/Happy-Trading-Alarm/settings/secrets/actions?utm_source=chatgpt.com)
+
+روی **New repository secret** کلیک کن و این اطلاعات را وارد کن:
+
+**Name**
+
+```text
+RELEASE_KEYSTORE_BASE64
+```
+
+**Secret**
+
+در کادر مقدار، `Ctrl + V` بزن و سپس Secret را ذخیره کن.
+
+### نکته امنیتی مهم
+
+پس از اینکه فایل کلید را به‌صورت امن نگهداری کردی و Secret جدید را ساختی، Artifact موقت حاوی کلید را از بخش Actions حذف کن. فایل اصلی را نیز در مکانی امن و خصوصی نگه دار. هرگز رمزهای امضا یا فایل کلید را در مخزن عمومی قرار نده.
+
+---
+
+## مرحله بعد چیست؟
+
+بعد از تکمیل این مراحل، به من بگو **آیا Secret به نام `RELEASE_KEYSTORE_BASE64` را هم ساخته‌ای؟**
+
+سپس فایل `build.yml` را اصلاح می‌کنیم تا به‌جای APK دیباگ، نسخه **Release امضاشده با کلید اختصاصی** بسازد و خروجی را برای بارگذاری در کافه‌بازار آماده کند.
