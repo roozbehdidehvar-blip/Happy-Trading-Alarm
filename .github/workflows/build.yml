@@ -1,5 +1,5 @@
 name: Build Happy Trading Alarm
- 
+
 on:
   push:
     branches:
@@ -20,29 +20,40 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Set Up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Check Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          test -d "$ANDROID_HOME/platforms/android-35" || {
+            echo "::error::Android SDK Platform 35 is not installed."
+            exit 1
+          }
 
       - name: Install Custom PNG Launcher Icon
         shell: bash
         run: |
           set -e
 
-          ICON="app-icon.png"
-
-          if [ ! -f "$ICON" ]; then
-            echo "::error::File app-icon.png was not found in repository root."
+          if [ ! -f "app-icon.png" ]; then
+            echo "::error::app-icon.png not found in repository root."
             exit 1
           fi
 
           if [ ! -f "app/src/main/AndroidManifest.xml" ]; then
-            echo "::error::AndroidManifest.xml was not found."
+            echo "::error::AndroidManifest.xml not found."
             exit 1
           fi
 
           mkdir -p app/src/main/res/drawable-nodpi
 
-          cp "$ICON" app/src/main/res/drawable-nodpi/ic_custom_launcher.png
+          cp app-icon.png \
+            app/src/main/res/drawable-nodpi/ic_custom_launcher.png
 
-          echo "Custom PNG icon copied successfully."
+          echo "Custom icon copied successfully."
 
       - name: Configure Launcher Icon
         shell: bash
@@ -54,21 +65,19 @@ jobs:
           manifest = Path("app/src/main/AndroidManifest.xml")
           content = manifest.read_text(encoding="utf-8")
 
-          replacement = '@drawable/ic_custom_launcher'
-
-          updated, count_icon = re.subn(
+          updated, count = re.subn(
               r'android:icon\s*=\s*"[^"]*"',
-              f'android:icon="{replacement}"',
+              'android:icon="@drawable/ic_custom_launcher"',
               content,
               count=1
           )
 
-          if count_icon != 1:
+          if count != 1:
               raise SystemExit(
                   "Could not find android:icon in AndroidManifest.xml"
               )
 
-          updated, _ = re.subn(
+          updated = re.sub(
               r'\s+android:roundIcon\s*=\s*"[^"]*"',
               '',
               updated,
@@ -79,11 +88,8 @@ jobs:
           print("Launcher icon configured successfully.")
           PY
 
-      - name: Grant Gradle Permission
-        run: chmod +x ./gradlew
-
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: gradle assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
