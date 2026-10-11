@@ -1,5 +1,5 @@
 name: Build Happy Trading Alarm
-
+ 
 on:
   push:
     branches:
