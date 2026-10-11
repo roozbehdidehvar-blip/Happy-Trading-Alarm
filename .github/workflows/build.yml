@@ -20,8 +20,6 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set Up Android SDK
-        uses: android-actions/setup-android@v3
 
       - name: Install Custom PNG Launcher Icon
         shell: bash
